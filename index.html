@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sub-4</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sub-4">
+<meta name="theme-color" content="#12211F">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>html,body{margin:0;background:#12211F;color:#E9E4D7;-webkit-text-size-adjust:100%}#root{min-height:100vh;padding-top:env(safe-area-inset-top)}</style>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// Same async API as the Claude artifact storage, backed by this browser's localStorage.
+window.storage = {
+  async get(key) { const v = localStorage.getItem("mc:" + key); if (v === null) throw new Error("not found"); return { key, value: v, shared:false }; },
+  async set(key, value) { localStorage.setItem("mc:" + key, value); return { key, value, shared:false }; },
+  async delete(key) { localStorage.removeItem("mc:" + key); return { key, deleted:true, shared:false }; },
+  async list(prefix="") { const keys = Object.keys(localStorage).filter(k => k.startsWith("mc:" + prefix)).map(k => k.slice(3)); return { keys, prefix, shared:false }; }
+};
+// Offline: cache this page and the icon after first load.
+if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(() => {}); }
+</script>
+<script>
+(() => {
+  const { useState, useEffect, useMemo, useRef } = React, RACE_DEFAULT = "2027-04-25", STORE_KEY = "marathon-companion-v1", TOTAL_WEEKS = 32, PLAN = [
+    {
+      wk: 1,
+      ph: 0,
+      tue: "20 min walk-jog (1 run : 2 walk)",
+      wed: "20 min walk-jog (1:2)",
+      thu: "20 min walk-jog (1:2)",
+      sat: "25 min walk-jog",
+      sun: "25 min walk-jog",
+      miles: 6,
+      lifts: 2,
+      note: "Deliberately trivial. Recovering from a cold \u2014 walk it all if you feel flat.",
+      days: [{ t: "Rest", d: "Still recovering. Nothing today.", k: "rest" }, { t: "Rest", d: "Still recovering. Nothing today.", k: "rest" }, { t: "First session", d: "20 min walk-jog (1 min run : 2 min walk). Above-the-neck symptoms only, or walk the lot.", k: "run" }, { t: "Walk-jog + Lift B", d: "20 min walk-jog (1:2) \xB7 then Lift B at calibration loads", k: "run", lift: "B" }, { t: "Rest", d: "20 min walk or mobility, or nothing.", k: "rest" }, { t: "Walk-jog", d: "25 min walk-jog (1:2)", k: "run" }, { t: "Long walk-jog", d: "25 min walk-jog (1:2)", k: "run", long: !0 }]
+    },
+    { wk: 2, ph: 0, tue: "25 min walk-jog (2:2)", wed: "25 min walk-jog (2:2)", thu: "25 min walk-jog (2:2)", sat: "30 min walk-jog (2:2)", sun: "30 min walk-jog", miles: 9, lifts: 3, note: "Calibration week 2 in the gym: top of every rep range should feel like 4 reps in reserve." },
+    { wk: 3, ph: 0, tue: "30 min walk-jog (3:1)", wed: "30 min walk-jog (3:1)", thu: "25 min walk-jog (3:1)", sat: "35 min walk-jog (3:1)", sun: "35 min walk-jog", miles: 11, lifts: 3 },
+    { wk: 4, ph: 0, down: !0, tue: "25 min easy", wed: "25 min easy", thu: "25 min easy", sat: "30 min easy", sun: "30 min easy", miles: 9, lifts: 3, note: "Down week. The cut is the point." },
+    { wk: 5, ph: 0, tue: "30 min easy + 4 strides", wed: "30 min easy", thu: "30 min easy", sat: "35 min easy", sun: "40 min continuous", miles: 13, lifts: 3, note: "Continuous running starts. GP appointment should be done by now." },
+    { wk: 6, ph: 0, tue: "35 min easy + 6 strides", wed: "35 min easy", thu: "30 min easy", sat: "40 min easy", sun: "45 min continuous", miles: 15, lifts: 3 },
+    { wk: 7, ph: 1, tue: "6 \xD7 30s hill strides, walk-back recovery (35 min total)", wed: "35 min easy", thu: "30 min easy", sat: "45 min easy", sun: "50 min easy", miles: 17, lifts: 3 },
+    { wk: 8, ph: 1, down: !0, tue: "30 min easy", wed: "30 min easy", thu: "30 min easy", sat: "parkrun 5K \u2014 flat out. Baseline.", sun: "40 min easy", miles: 13, lifts: 3, milestone: "parkrun baseline" },
+    { wk: 9, ph: 1, tue: "Plyos + 8 \xD7 30s hills (40 min)", wed: "35 min easy", thu: "30 min easy", sat: "45 min easy", sun: "5 mi easy", miles: 18, lifts: 3, note: "Plyometrics begin: pogo hops, A-skips, box jumps, bounds. 8 min, before the run." },
+    { wk: 10, ph: 1, tue: "Plyos + 10 \xD7 30s hills (40 min)", wed: "40 min easy", thu: "30 min easy", sat: "50 min easy", sun: "6 mi easy", miles: 20, lifts: 3 },
+    { wk: 11, ph: 1, tue: "Plyos + 2 \xD7 8 min steady (45 min)", wed: "40 min easy", thu: "30 min easy", sat: "50 min easy", sun: "7 mi easy", miles: 22, lifts: 3 },
+    { wk: 12, ph: 1, down: !0, tue: "30 min easy + 6 strides", wed: "30 min easy", thu: "30 min easy", sat: "40 min easy", sun: "5 mi easy", miles: 17, lifts: 3 },
+    { wk: 13, ph: 1, tue: "Plyos + 3 \xD7 8 min steady (50 min)", wed: "40 min easy", thu: "35 min easy", sat: "55 min easy", sun: "8 mi easy", miles: 23, lifts: 3 },
+    { wk: 14, ph: 1, tue: "Plyos + 2 \xD7 12 min steady (50 min)", wed: "40 min easy", thu: "35 min easy", sat: "60 min easy", sun: "9 mi easy", miles: 25, lifts: 3, note: "Last week of the muscle-building block. From here, lifting is maintenance." },
+    { wk: 15, ph: 2, down: !0, tue: "30 min easy", wed: "30 min easy", thu: "30 min easy", sat: "40 min easy", sun: "6 mi easy", miles: 18, lifts: 2, note: "Christmas down week. Enjoy it. Eat." },
+    { wk: 16, ph: 2, tue: "2 \xD7 10 min threshold (45 min)", wed: "35 min easy", thu: "35 min easy", sat: "50 min easy", sun: "8 mi easy", miles: 24, lifts: 2, milestone: "parkrun ~26:30 (optional, Sat)" },
+    { wk: 17, ph: 2, tue: "3 \xD7 8 min threshold (50 min)", wed: "40 min easy", thu: "35 min easy", sat: "55 min easy", sun: "10 mi easy", miles: 27, lifts: 2 },
+    { wk: 18, ph: 2, tue: "20 min continuous threshold (50 min)", wed: "40 min easy", thu: "35 min easy", sat: "60 min easy", sun: "11 mi easy", miles: 29, lifts: 2 },
+    { wk: 19, ph: 2, tue: "5 \xD7 4 min @ interval pace, 2 min jog (50 min)", wed: "40 min easy", thu: "35 min easy", sat: "60 min easy", sun: "12 mi easy", miles: 31, lifts: 2 },
+    { wk: 20, ph: 2, down: !0, tue: "35 min easy + 6 strides", wed: "35 min easy", thu: "30 min easy", sat: "45 min easy", sun: "8 mi easy", miles: 24, lifts: 2 },
+    { wk: 21, ph: 2, tue: "2 \xD7 12 min threshold (50 min)", wed: "40 min easy", thu: "35 min easy", sat: "60 min easy", sun: "13 mi easy", miles: 31, lifts: 2 },
+    { wk: 22, ph: 2, tue: "25 min continuous threshold (55 min)", wed: "40 min easy", thu: "35 min easy", sat: "60 min easy", sun: "14 mi, last 3 @ MP", miles: 33, lifts: 2, mp: !0 },
+    {
+      wk: 23,
+      ph: 2,
+      tue: "30 min easy",
+      wed: "30 min easy + 6 strides",
+      thu: "30 min easy",
+      sat: "20 min shakeout",
+      sun: "HALF MARATHON \u2014 race it",
+      miles: 30,
+      lifts: 1,
+      milestone: "Half marathon \xB7 decision gate",
+      days: [{ t: "Lift A", d: "Light. Nothing to failure this week.", k: "lift", lift: "A" }, { t: "Easy run", d: "30 min easy", k: "run" }, { t: "Easy + strides", d: "30 min easy + 6 strides", k: "run" }, { t: "Easy run", d: "30 min easy. No Lift B this week.", k: "run" }, { t: "Rest", d: "Feet up.", k: "rest" }, { t: "Shakeout", d: "20 min very easy + 4 strides", k: "run" }, { t: "Half marathon", d: "Race it. Even effort, don't go out fast. This time sets the marathon target.", k: "race", long: !0 }]
+    },
+    { wk: 24, ph: 2, down: !0, tue: "35 min easy", wed: "35 min easy", thu: "30 min easy", sat: "45 min easy", sun: "10 mi easy", miles: 26, lifts: 2, note: "Recovery week after the half. Make the sub-4 call now \u2014 see Trends." },
+    { wk: 25, ph: 3, tue: "4 \xD7 6 min threshold, 90s jog (55 min)", wed: "40 min easy", thu: "35 min easy", sat: "60 min easy", sun: "15 mi, last 4 @ MP", miles: 34, lifts: 2, mp: !0 },
+    { wk: 26, ph: 3, shift: !0, tue: "3 \xD7 10 min @ MP, 3 min jog (55 min)", wed: "40 min easy", thu: "35 min easy", sat: "60 min easy", sun: "16 mi, last 5 @ MP", miles: 36, lifts: 2, mp: !0, note: "48-hour rule: quality moves to Wednesday after Sunday's MP work." },
+    { wk: 27, ph: 3, down: !0, shift: !0, tue: "20 min threshold (45 min)", wed: "35 min easy", thu: "30 min easy", sat: "45 min easy", sun: "12 mi easy", miles: 28, lifts: 2, note: "Down week (2:1 cadence from here)." },
+    { wk: 28, ph: 3, tue: "2 \xD7 15 min threshold, 3 min jog (55 min)", wed: "40 min easy", thu: "35 min easy", sat: "65 min easy", sun: "18 mi easy \u2014 cap at 3:00", miles: 38, lifts: 2 },
+    { wk: 29, ph: 3, monRest: !0, tue: "4 \xD7 8 min @ MP, 2 min jog (60 min)", wed: "40 min easy", thu: "35 min easy", sat: "60 min easy", sun: "20 mi \u2014 peak. Cap 3:00. Full dress rehearsal: kit, shoes, fuel, wake time.", miles: 40, lifts: 2, milestone: "Peak long run \xB7 dress rehearsal" },
+    { wk: 30, ph: 3, monRest: !0, tue: "3 \xD7 10 min threshold (50 min)", wed: "35 min easy", thu: "30 min easy", sat: "50 min easy", sun: "16 mi, middle 8 @ MP", miles: 34, lifts: 2, mp: !0, note: "Taper starts. Volume drops, intensity stays." },
+    {
+      wk: 31,
+      ph: 4,
+      tue: "",
+      wed: "",
+      thu: "",
+      sat: "",
+      sun: "",
+      miles: 26,
+      lifts: 1,
+      note: "You will feel sluggish and convinced you've lost fitness around days 5\u20139. Universal. Means nothing.",
+      days: [{ t: "Rest", d: "Full rest after Sunday's MP run.", k: "rest" }, { t: "Easy run", d: "30 min easy", k: "run" }, { t: "Quality run", d: "3 \xD7 6 min @ MP, 2 min jog (40 min)", k: "run", q: !0 }, { t: "Easy + final lift", d: "30 min easy \xB7 then Lift A, moderate loads, nothing to failure. Last lift before the race.", k: "run", lift: "A" }, { t: "Rest", d: "Feet up.", k: "rest" }, { t: "Easy run", d: "20 min easy", k: "run" }, { t: "Long run", d: "10 mi easy", k: "run", long: !0 }]
+    },
+    {
+      wk: 32,
+      ph: 4,
+      tue: "",
+      wed: "",
+      thu: "",
+      sat: "",
+      sun: "MARATHON",
+      miles: 16,
+      lifts: 0,
+      milestone: "Race day",
+      days: [{ t: "Easy run", d: "30 min easy", k: "run" }, { t: "Sharpener", d: "20 min easy + 4 \xD7 90s @ MP", k: "run" }, { t: "Easy run", d: "25 min easy. Carb load starts tomorrow.", k: "run" }, { t: "Rest", d: "Carb load: 8\u201310 g/kg. Cut fibre and fat.", k: "rest" }, { t: "Shakeout", d: "20 min easy + 4 strides. Carb load.", k: "run" }, { t: "Rest or 15 min", d: "15 min shakeout or nothing. Lay out kit. Carb load.", k: "rest" }, { t: "Marathon", d: "First 3 miles at MP + 15 s/mile. Miles 4\u201320 at MP. From 20, whatever's left. Walk the finish funnel \u2014 don't stop dead.", k: "race", long: !0 }]
+    }
+  ], PHASES = ["Re-entry", "Aerobic base", "Strength & threshold", "Marathon specific", "Taper"], SP = { walk: 5.5, jog: 8, easy: 9, steady: 10.2, mp: 10.7, thr: 11.6, int: 12.4, stride: 13.5, hill: 10, hillwalk: 4.5 }, seg = (label, s, kmh, inc = 1) => ({ label, s, kmh, inc }), WU = () => {
+    const r = [seg("Warm-up walk", 180, SP.walk), seg("Warm-up jog", 240, SP.jog), seg("Warm-up easy", 180, SP.easy)];
+    for (let i = 1; i <= 4; i++) r.push(seg(`Stride ${i}/4`, 20, SP.stride), seg("Walk", 40, SP.walk));
+    return r;
+  }, CD = () => [seg("Cool-down jog", 180, SP.jog), seg("Walk it off \u2014 never stop dead", 180, SP.walk, 0)], reps = (label, n, ws, kmh, inc, rs, rkmh, rinc) => {
+    const r = [];
+    for (let i = 1; i <= n; i++)
+      r.push(seg(`${label} ${i}/${n}`, ws, kmh, inc)), rs && i < n && r.push(seg("Recovery", rs, rkmh, rinc));
+    return r;
+  }, M = (m) => Math.round(m * 60), miS = (mi, kmh) => Math.round(mi * 1.609344 / kmh * 3600), SESSIONS = (() => {
+    const S = {}, add = (id, name, segs, group) => {
+      S[id] = { id, name, segs, group };
+    };
+    for (const [n] of [[6], [8], [10]]) add(`hills_${n}`, `${n} \xD7 30 s hill strides (6%)`, [...WU(), ...reps("Hill", n, 30, SP.hill, 6, 90, SP.hillwalk, 6), seg("Walk", 90, SP.hillwalk, 6), seg("Jog \u2014 incline coming down", 180, SP.jog), ...CD()], "Quality");
+    for (const [n, m] of [[2, 8], [3, 8], [2, 12]]) add(`steady_${n}x${m}`, `${n} \xD7 ${m} min steady`, [...WU(), ...reps("Steady", n, M(m), SP.steady, 1, M(m === 8 ? 2 : 3), SP.jog, 1), ...CD()], "Quality");
+    for (const [n, m, rec] of [[2, 10, 3], [3, 8, 2], [1, 20, 0], [2, 12, 3], [1, 25, 0], [4, 6, 1.5], [2, 15, 3], [3, 10, 2]]) add(`thr_${n}x${m}`, n === 1 ? `${m} min continuous threshold` : `${n} \xD7 ${m} min threshold`, [...WU(), ...reps("Threshold", n, M(m), SP.thr, 1, M(rec), SP.jog, 1), ...CD()], "Quality");
+    add("int_5x4", "5 \xD7 4 min intervals", [...WU(), ...reps("Interval", 5, M(4), SP.int, 1, M(2), SP.jog, 1), ...CD()], "Quality");
+    for (const [n, m, rec] of [[3, 10, 3], [4, 8, 2], [3, 6, 2]]) add(`mp_${n}x${m}`, `${n} \xD7 ${m} min @ marathon pace`, [...WU(), ...reps("Marathon pace", n, M(m), SP.mp, 1, M(rec), SP.jog, 1), ...CD()], "Quality");
+    add("sharp_4x90", "Race week sharpener", [seg("Walk", 120, SP.walk), seg("Easy", M(18), SP.easy), ...reps("MP", 4, 90, SP.mp, 1, 90, SP.jog, 1), ...CD()], "Quality");
+    for (const m of [20, 25, 30, 35, 40, 45, 50, 55, 60, 65]) {
+      add(`easy_${m}`, `${m} min easy`, [seg("Walk", 120, SP.walk), seg("Easy", M(m), SP.easy), seg("Walk it off", 180, SP.walk, 0)], "Easy");
+      for (const k of [4, 6]) {
+        const r = [seg("Walk", 120, SP.walk), seg("Easy", M(m), SP.easy)];
+        for (let i = 1; i <= k; i++) r.push(seg(`Stride ${i}/${k}`, 20, SP.stride), seg("Walk", 40, SP.walk));
+        r.push(seg("Walk it off", 180, SP.walk, 0)), add(`easy_${m}_strides${k}`, `${m} min easy + ${k} strides`, r, "Easy");
+      }
+    }
+    for (const [m, a, b] of [[20, 1, 2], [25, 1, 2], [25, 2, 2], [30, 2, 2], [25, 3, 1], [30, 3, 1], [35, 3, 1]]) {
+      const r = [seg("Walk", 120, SP.walk)];
+      let t = 120, i = 1;
+      for (; t < m * 60; )
+        r.push(seg(`Run ${i}`, a * 60, SP.jog)), t += a * 60, t < m * 60 && (r.push(seg("Walk", b * 60, SP.walk)), t += b * 60), i++;
+      r.push(seg("Walk it off", 180, SP.walk, 0)), add(`wj_${m}_${a}_${b}`, `${m} min walk-jog (${a}:${b})`, r, "Walk-jog");
+    }
+    for (const n of [5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 18, 20]) {
+      const full = miS(n, SP.easy), capped = full + 480 > 10800, es = capped ? 10320 : full;
+      add(`long_${n}_easy`, capped ? `${n} mi easy \u2014 capped at 3:00 (\u2248${(es / 3600 * SP.easy / 1.609344).toFixed(1)} mi)` : `${n} mi easy`, [seg("Walk", 180, SP.walk), seg(capped ? "Easy \u2014 3 h cap" : `Easy ${n} mi`, es, SP.easy), seg("Walk it off", 300, SP.walk, 0)], "Long");
+    }
+    return add("long_14_last3", "14 mi \u2014 last 3 @ MP", [seg("Walk", 180, SP.walk), seg("Easy 11 mi", miS(11, SP.easy), SP.easy), seg("MP 3 mi", miS(3, SP.mp), SP.mp), seg("Walk it off", 300, SP.walk, 0)], "Long"), add("long_15_last4", "15 mi \u2014 last 4 @ MP", [seg("Walk", 180, SP.walk), seg("Easy 11 mi", miS(11, SP.easy), SP.easy), seg("MP 4 mi", miS(4, SP.mp), SP.mp), seg("Walk it off", 300, SP.walk, 0)], "Long"), add("long_16_last5", "16 mi \u2014 last 5 @ MP", [seg("Walk", 180, SP.walk), seg("Easy 11 mi", miS(11, SP.easy), SP.easy), seg("MP 5 mi", miS(5, SP.mp), SP.mp), seg("Walk it off", 300, SP.walk, 0)], "Long"), add("long_16_mid8", "16 mi \u2014 middle 8 @ MP", [seg("Walk", 180, SP.walk), seg("Easy 4 mi", miS(4, SP.easy), SP.easy), seg("MP 8 mi", miS(8, SP.mp), SP.mp), seg("Easy 4 mi", miS(4, SP.easy), SP.easy), seg("Walk it off", 300, SP.walk, 0)], "Long"), S;
+  })(), PACER_BY_WEEK = { 7: "hills_6", 9: "hills_8", 10: "hills_10", 11: "steady_2x8", 13: "steady_3x8", 14: "steady_2x12", 16: "thr_2x10", 17: "thr_3x8", 18: "thr_1x20", 19: "int_5x4", 21: "thr_2x12", 22: "thr_1x25", 25: "thr_4x6", 26: "mp_3x10", 27: "thr_1x20", 28: "thr_2x15", 29: "mp_4x8", 30: "thr_3x10", 31: "mp_3x6", 32: "sharp_4x90" };
+  function sessionForDay(w, day) {
+    if (!day || day.k !== "run") return null;
+    if (day.q && PACER_BY_WEEK[w.wk]) return PACER_BY_WEEK[w.wk];
+    const d = day.d || "";
+    let m;
+    if (m = d.match(/(\d+) min walk-jog(?: \((\d)(?: min)?(?: run)?\s*:\s*(\d)(?: min)?(?: walk)?\))?/)) {
+      const a = m[2] || 3, b = m[3] || 1;
+      return SESSIONS[`wj_${m[1]}_${a}_${b}`] ? `wj_${m[1]}_${a}_${b}` : null;
+    }
+    return (m = d.match(/(\d+) min (?:very )?easy \+ (\d) strides/)) ? SESSIONS[`easy_${m[1]}_strides${m[2]}`] ? `easy_${m[1]}_strides${m[2]}` : null : (m = d.match(/(\d+) min (?:very )?(?:easy|continuous|shakeout)/)) ? SESSIONS[`easy_${m[1]}`] ? `easy_${m[1]}` : null : (m = d.match(/^(\d+) mi(?: easy| —)/)) ? SESSIONS[`long_${m[1]}_easy`] ? `long_${m[1]}_easy` : null : /14 mi, last 3/.test(d) ? "long_14_last3" : /15 mi, last 4/.test(d) ? "long_15_last4" : /16 mi, last 5/.test(d) ? "long_16_last5" : /16 mi, middle 8/.test(d) ? "long_16_mid8" : null;
+  }
+  const sessionDistanceMi = (sess, offset = 0) => sess.segs.reduce((k, g) => k + (g.kmh >= 8 ? g.kmh + offset : g.kmh) * g.s / 3600, 0) / 1.609344, sessionSecs = (sess) => sess.segs.reduce((t, g) => t + g.s, 0), kmhToMph = (k) => (k / 1.609344).toFixed(1), mmss = (s) => {
+    s = Math.max(0, Math.round(s));
+    const m = Math.floor(s / 60), x = s % 60;
+    return `${m}:${pad(x)}`;
+  }, hms = (s) => {
+    s = Math.max(0, Math.round(s));
+    const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    return h ? `${h}:${pad(m)}:${pad(x)}` : `${m}:${pad(x)}`;
+  };
+  function parseHealthLine(text) {
+    const m = (text || "").match(/HEALTH\|([\d-]+)\|([\d.]*)\|([\d.]*)\|(\d*)\|([\d.]*)\|(\d*)\|(\d*)/);
+    if (!m) return null;
+    const [, date, mins, miles, hr, kg, sys, dia] = m;
+    return { date, mins, miles, hr, kg, sys, dia };
+  }
+  function applyHealth(p, h) {
+    let next = { ...p };
+    if (h.mins || h.miles || h.hr) {
+      const prev = next.logs[h.date] || {};
+      next.logs = { ...next.logs, [h.date]: { ...prev, done: !0, kind: prev.kind || "run", mins: h.mins || prev.mins, miles: h.miles || prev.miles, hr: h.hr || prev.hr, note: (prev.note ? prev.note + " \xB7 " : "") + "from Health", ts: Date.now() } };
+    }
+    return (h.kg || h.sys) && (next.body = [...next.body.filter((b) => b.date !== h.date), { date: h.date, kg: h.kg, sys: h.sys, dia: h.dia }].sort((a, b) => a.date < b.date ? -1 : 1)), next;
+  }
+  const LIFTS = {
+    A: { name: "Lift A", when: "Upper-biased full body \xB7 45 min", ex: [
+      { id: "a1", n: "Feet-elevated / deficit push-ups", sets: 4, lo: 8, hi: 15, load: "bw" },
+      { id: "a2", n: "Inverted rows under the bench (pull-ups if you get a bar)", sets: 4, lo: 6, hi: 12, load: "bw" },
+      { id: "a3", n: "Seated single-arm DB press, 4 s down", sets: 3, lo: 8, hi: 12, load: "db", per: "arm" },
+      { id: "a4", n: "Chest-supported single-arm DB row, pause at top", sets: 3, lo: 10, hi: 12, load: "db", per: "arm" },
+      { id: "a5", n: "Lateral raise \u2014 priority, go to failure", sets: 4, lo: 12, hi: 20, load: "db" },
+      { id: "a6", n: "Rear-delt fly", sets: 3, lo: 15, hi: 20, load: "db" },
+      { id: "a7", n: "Curl + overhead triceps superset", sets: 2, lo: 10, hi: 12, load: "db" }
+    ], core: "Core A \u2014 anti-rotation & anti-lateral: side plank 3 \xD7 30 s/side, dead bug 3 \xD7 10/side (wks 1\u20138); Pallof press 3 \xD7 12/side + suitcase carry 3 \xD7 30 m/side (wks 9+)" },
+    B: { name: "Lift B", when: "Lower-biased full body \xB7 35 min, after the easy run", ex: [
+      { id: "b1", n: "Bulgarian split squat, 10 kg each hand, 4 s down", sets: 4, lo: 8, hi: 12, load: "db", per: "leg", rir: !0 },
+      { id: "b2", n: "Single-leg RDL, 10 kg, slow", sets: 3, lo: 10, hi: 15, load: "db", per: "leg", rir: !0 },
+      { id: "b3", n: "Step-up on a stair, 10 kg each hand", sets: 3, lo: 8, hi: 12, load: "db", per: "leg", rir: !0 },
+      { id: "b4", n: "Single-leg calf raise off a step, straight knee, 10 kg", sets: 3, lo: 10, hi: 15, load: "db", per: "leg" },
+      { id: "b5", n: "Seated / bent-knee calf raise, 10 kg on knees", sets: 3, lo: 15, hi: 20, load: "db" },
+      { id: "b6", n: "Single-leg glute bridge, feet on bench, 10 kg on hip", sets: 3, lo: 10, hi: 15, load: "db", per: "leg" },
+      { id: "b7", n: "Inverted row", sets: 3, lo: 8, hi: 12, load: "bw" }
+    ], core: "Core B \u2014 anti-extension & hip: bird dog 3 \xD7 8/side, Copenhagen plank 2 \xD7 20 s/side (wks 1\u20138); ab-wheel or long-lever plank 3 \xD7 8, Copenhagen full 3 \xD7 25 s/side, hanging knee raise 3 \xD7 10 (wks 9+)" },
+    C: { name: "Lift C", when: "Pure physique \xB7 25 min \xB7 weeks 1\u201314 only", ex: [
+      { id: "c1", n: "Dips between two chairs, or DB floor press", sets: 3, lo: 8, hi: 12, load: "db" },
+      { id: "c2", n: "Single-arm DB row", sets: 3, lo: 12, hi: 15, load: "db", per: "arm" },
+      { id: "c3", n: "Lateral raise", sets: 4, lo: 15, hi: 20, load: "db" },
+      { id: "c4", n: "Straight-arm pulldown (band) or hard rower pulls", sets: 3, lo: 15, hi: 20, load: "bw" },
+      { id: "c5", n: "Incline curl", sets: 2, lo: 12, hi: 15, load: "db" },
+      { id: "c6", n: "Overhead triceps extension", sets: 2, lo: 12, hi: 15, load: "db" }
+    ], core: "" }
+  }, pad = (n) => String(n).padStart(2, "0"), iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, parse = (s) => {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }, addDays = (s, n) => {
+    const d = parse(s);
+    return d.setDate(d.getDate() + n), iso(d);
+  }, diffDays = (a, b) => Math.round((parse(b) - parse(a)) / 864e5), DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], fmt = (s) => {
+    const d = parse(s);
+    return `${DAYS[(d.getDay() + 6) % 7]} ${d.getDate()} ${MON[d.getMonth()]}`;
+  }, fmtD = (s) => {
+    const d = parse(s);
+    return `${d.getDate()} ${MON[d.getMonth()]}`;
+  }, todayISO = () => iso(/* @__PURE__ */ new Date()), weekMonday = (wk, race) => addDays(race, -6 - 7 * (TOTAL_WEEKS - wk)), weekOf = (date, race) => {
+    const until = diffDays(date, race);
+    return until < 0 ? TOTAL_WEEKS + 1 : TOTAL_WEEKS - Math.floor(until / 7);
+  }, dow = (s) => (parse(s).getDay() + 6) % 7;
+  function daysFor(w) {
+    if (w.days) return w.days;
+    const liftA = { t: "Lift A", d: "Upper-biased full body \xB7 45 min. Legs are tired from Sunday, that's why it's upper.", k: "lift", lift: "A" }, mon = w.monRest ? { t: "Rest", d: "Complete rest after the long run. No lift. Age adaptation \u2014 protect the recovery.", k: "rest" } : liftA, quality = { t: "Quality run", d: w.tue, k: "run", q: !0 }, easyWed = { t: w.monRest ? "Easy run + Lift A" : "Easy run", d: w.wed + (w.monRest ? " \xB7 then Lift A (upper)" : " \xB7 +10 min core"), k: "run", lift: w.monRest ? "A" : void 0 }, tue = w.shift ? { t: "Easy run", d: w.wed + " \xB7 quality moves to tomorrow (48 h rule)", k: "run" } : quality, wed = w.shift ? quality : easyWed, thu = { t: "Easy run + Lift B", d: w.thu + " \xB7 then Lift B (lower)", k: "run", lift: "B" }, fri = { t: "Rest", d: "Nothing, or 20 min walk / mobility.", k: "rest" }, sat = w.lifts >= 3 ? { t: "Medium run + Lift C", d: w.sat + " \xB7 then Lift C (physique)", k: "run", lift: "C" } : { t: "Medium run", d: w.sat, k: "run" }, sun = { t: "Long run", d: w.sun, k: "run", long: !0 };
+    return [mon, tue, wed, thu, fri, sat, sun];
+  }
+  const parseTime = (s) => {
+    if (!s) return null;
+    const p = s.trim().split(":").map(Number);
+    return p.some(isNaN) ? null : p.length === 2 ? p[0] * 60 + p[1] : p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : null;
+  }, fmtSec = (s) => {
+    const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = Math.round(s % 60);
+    return h ? `${h}:${pad(m)}:${pad(x)}` : `${m}:${pad(x)}`;
+  }, riegel = (sec, fromKm, toKm = 42.195) => sec * Math.pow(toKm / fromKm, 1.06), CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap');
+.mc{--bg:#12211F;--panel:#1A2C29;--panel2:#21372F;--line:#2C4440;--ink:#E9E4D7;--mute:#8FA39C;--hi:#F2C14E;--warn:#E0704A;--ok:#79C99E;
+ font-family:'Instrument Sans',-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:16px;line-height:1.4;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.mc *{box-sizing:border-box}
+.mc .wrap{max-width:520px;margin:0 auto;padding:16px 16px 92px}
+.mc h1{font-size:26px;font-weight:600;letter-spacing:-.01em;margin:0 0 4px;line-height:1.15}
+.mc h2{font-size:18px;font-weight:600;margin:20px 0 8px}
+.mc .mute{color:var(--mute)}
+.mc .sm{font-size:13px}
+.mc .hi{color:var(--hi)}
+.mc .warn{color:var(--warn)}
+.mc .ok{color:var(--ok)}
+.mc .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.mc .hero{background:var(--panel2);border:1px solid var(--hi);border-radius:16px;padding:18px 16px;margin:14px 0}
+.mc .hero .kicker{font-size:13px;color:var(--mute);margin-bottom:6px}
+.mc .hero .title{font-size:28px;font-weight:600;letter-spacing:-.01em;line-height:1.1;margin:0 0 8px}
+.mc .hero .desc{font-size:16px;line-height:1.45}
+.mc .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.mc .row:last-child{border-bottom:0}
+.mc .stack{display:flex;flex-direction:column;gap:2px}
+.mc button{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mc button:focus-visible{outline:2px solid var(--hi);outline-offset:2px}
+.mc button.primary{background:var(--hi);color:#1A1A12;border-color:var(--hi);font-weight:600;width:100%;padding:14px;font-size:17px;border-radius:12px}
+.mc button.ghost{background:transparent}
+.mc button.chip{padding:8px 12px;border-radius:999px;font-size:14px}
+.mc button.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.mc input,.mc textarea,.mc select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;font-size:16px}
+.mc input[type=number]{-moz-appearance:textfield}
+.mc input:focus,.mc textarea:focus{outline:2px solid var(--hi);outline-offset:0;border-color:var(--hi)}
+.mc label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+.mc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mc .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mc .nav{position:fixed;left:0;right:0;bottom:0;background:rgba(18,33,31,.96);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:8px 6px calc(10px + env(safe-area-inset-bottom));backdrop-filter:blur(8px)}
+.mc .nav button{background:none;border:0;padding:6px 8px;font-size:12px;color:var(--mute);display:flex;flex-direction:column;align-items:center;gap:3px;border-radius:8px}
+.mc .nav button.on{color:var(--hi)}
+.mc .nav .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.9}
+.mc .tag{display:inline-block;font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mute);margin-right:6px}
+.mc .tag.hi{border-color:var(--hi);color:var(--hi)}
+.mc .tag.ok{border-color:var(--ok);color:var(--ok)}
+.mc .tag.warn{border-color:var(--warn);color:var(--warn)}
+.mc .rpe{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.mc .rpe button{padding:10px 0;font-size:14px;border-radius:8px}
+.mc .rpe button.on{background:var(--hi);color:#1A1A12;border-color:var(--hi);font-weight:600}
+.mc .bar{height:8px;background:var(--line);border-radius:999px;overflow:hidden}
+.mc .bar > div{height:100%;background:var(--hi);border-radius:999px}
+.mc .wk{padding:12px 0;border-bottom:1px solid var(--line)}
+.mc .wk.now{border-left:3px solid var(--hi);padding-left:10px;margin-left:-13px}
+.mc .exset{display:grid;grid-template-columns:64px 1fr;gap:8px;align-items:center;margin-top:6px}
+.mc .reps{display:flex;gap:6px}
+.mc .reps input{padding:8px 6px;text-align:center}
+.mc .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px}
+.mc details summary{cursor:pointer;list-style:none}
+.mc details summary::-webkit-details-marker{display:none}
+.mc .pace{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:22px 18px;text-align:center}
+.mc .pace .big{font-size:clamp(64px,22vw,140px);font-weight:600;line-height:1;letter-spacing:-.03em;color:var(--hi)}
+.mc .pace .spd{font-size:clamp(34px,10vw,64px);font-weight:600;line-height:1.1;margin-top:8px}
+.mc .pace .lbl{font-size:18px;margin-top:6px}
+.mc .pace.on{border-color:var(--hi)}
+.mc .pace.rec{border-color:var(--ok)}
+.mc .pace.rec .big{color:var(--ok)}
+.mc .ctrl{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+.mc .ctrl button{padding:16px 8px;font-size:16px;font-weight:600}
+.mc .segs{max-height:220px;overflow:auto;margin-top:12px}
+.mc .segs .row{padding:6px 0}
+.mc .segs .cur{color:var(--hi)}
+.mc .segs .done{color:var(--mute);text-decoration:line-through}
+@media (prefers-reduced-motion: no-preference){.mc .hero{animation:mc-in .35s ease-out}}
+@keyframes mc-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+`, EMPTY = { settings: { race: RACE_DEFAULT }, logs: {}, lifts: [], body: [], checks: {} };
+  function App() {
+    const [data, setData] = useState(EMPTY), [loaded, setLoaded] = useState(!1), [tab, setTab] = useState("today"), [toast, setToast] = useState(""), saveT = useRef(null);
+    useEffect(() => {
+      (async () => {
+        let d = EMPTY;
+        try {
+          const r = await window.storage.get(STORE_KEY);
+          r && r.value && (d = { ...EMPTY, ...JSON.parse(r.value) });
+        } catch (e) {
+        }
+        try {
+          const h = decodeURIComponent((window.location.hash || "").replace(/^#/, "")), hl = parseHealthLine(h);
+          hl && (d = applyHealth(d, hl), await window.storage.set(STORE_KEY, JSON.stringify(d)), window.history.replaceState(null, "", window.location.pathname), setToast("Imported from Health"), setTimeout(() => setToast(""), 2e3));
+        } catch (e) {
+        }
+        setData(d), setLoaded(!0);
+      })();
+    }, []);
+    const update = (fn) => setData((prev) => {
+      const next = fn(prev);
+      return clearTimeout(saveT.current), saveT.current = setTimeout(async () => {
+        try {
+          await window.storage.set(STORE_KEY, JSON.stringify(next));
+        } catch (e) {
+          flash("Couldn't save \u2014 storage unavailable");
+        }
+      }, 300), next;
+    }), flash = (m) => {
+      setToast(m), setTimeout(() => setToast(""), 1600);
+    }, race = data.settings.race || RACE_DEFAULT, today = todayISO(), wkNow = weekOf(today, race);
+    return loaded ? /* @__PURE__ */ React.createElement("div", { className: "mc" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "wrap" }, tab === "today" && /* @__PURE__ */ React.createElement(Today, { data, update, race, today, flash, goLift: () => setTab("lifts"), goPacer: () => setTab("pacer") }), tab === "pacer" && /* @__PURE__ */ React.createElement(Pacer, { data, update, race, today, flash }), tab === "week" && /* @__PURE__ */ React.createElement(Week, { data, update, race, today, flash }), tab === "plan" && /* @__PURE__ */ React.createElement(Plan, { data, update, race, today }), tab === "lifts" && /* @__PURE__ */ React.createElement(Lifts, { data, update, race, today, flash }), tab === "trends" && /* @__PURE__ */ React.createElement(Trends, { data, update, race, today, flash })), /* @__PURE__ */ React.createElement("nav", { className: "nav" }, [["today", "Today"], ["pacer", "Pacer"], ["week", "Week"], ["plan", "Plan"], ["lifts", "Lifts"], ["trends", "Trends"]].map(([k, l]) => /* @__PURE__ */ React.createElement("button", { key: k, className: tab === k ? "on" : "", onClick: () => setTab(k), "aria-current": tab === k }, /* @__PURE__ */ React.createElement("span", { className: "dot", style: { opacity: tab === k ? 1 : 0 } }), l))), toast && /* @__PURE__ */ React.createElement("div", { className: "toast", role: "status" }, toast)) : /* @__PURE__ */ React.createElement("div", { className: "mc" }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("div", { className: "wrap mute" }, "Loading\u2026"));
+  }
+  function Today({ data, update, race, today, flash, goLift, goPacer }) {
+    const [date, setDate] = useState(today), wk = weekOf(date, race), w = PLAN[wk - 1], log = data.logs[date] || {}, [form, setForm] = useState({ mins: "", miles: "", rpe: 0, niggle: "", note: "" });
+    if (useEffect(() => {
+      setForm({ mins: log.mins || "", miles: log.miles || "", rpe: log.rpe || 0, niggle: log.niggle || "", note: log.note || "" });
+    }, [date]), wk < 1) return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Not started yet"), /* @__PURE__ */ React.createElement("p", { className: "mute" }, "Week 1 begins ", fmt(weekMonday(1, race)), ". Rest, recover, and read the plan."));
+    if (wk > TOTAL_WEEKS) return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "You did it."), /* @__PURE__ */ React.createElement("p", { className: "mute" }, "The race was ", fmt(race), ". Log it in Trends and go and eat something enormous."));
+    const day = daysFor(w)[dow(date)], isRun = day.k === "run" || day.k === "race", daysToRace = diffDays(date, race), save = (done) => {
+      update((p) => ({ ...p, logs: { ...p.logs, [date]: { ...p.logs[date] || {}, done, mins: form.mins, miles: form.miles, rpe: form.rpe, niggle: form.niggle, note: form.note, kind: day.k, ts: Date.now() } } })), flash(done ? "Logged" : "Marked missed");
+    }, pasteHealth = async () => {
+      let t = "";
+      try {
+        t = await navigator.clipboard.readText();
+      } catch (e) {
+        t = window.prompt("Paste the HEALTH line from the Shortcut:") || "";
+      }
+      const h = parseHealthLine(t);
+      if (!h) {
+        flash("No HEALTH line found");
+        return;
+      }
+      update((p) => applyHealth(p, h)), setForm((f) => ({ ...f, mins: h.mins || f.mins, miles: h.miles || f.miles })), flash(`Imported ${h.date}`);
+    };
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "row", style: { border: 0, padding: 0 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, "Week ", wk, " of ", TOTAL_WEEKS, " \xB7 ", PHASES[w.ph], w.down ? " \xB7 down week" : ""), /* @__PURE__ */ React.createElement("h1", null, fmt(date))), /* @__PURE__ */ React.createElement("div", { className: "sm mute", style: { textAlign: "right" } }, daysToRace, " days", /* @__PURE__ */ React.createElement("br", null), "to race")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: () => setDate(addDays(date, -1)), "aria-label": "Previous day" }, "\u2039"), /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: () => setDate(today) }, "Today"), /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: () => setDate(addDays(date, 1)), "aria-label": "Next day" }, "\u203A")), /* @__PURE__ */ React.createElement("div", { className: "hero" }, /* @__PURE__ */ React.createElement("div", { className: "kicker" }, day.k === "rest" ? "Recovery" : day.k === "race" ? "Race day" : day.q ? "Quality session" : day.long ? "Long run" : day.k === "lift" ? "Strength" : "Easy day"), /* @__PURE__ */ React.createElement("div", { className: "title" }, day.t), /* @__PURE__ */ React.createElement("div", { className: "desc" }, day.d), log.done && /* @__PURE__ */ React.createElement("div", { className: "ok sm", style: { marginTop: 10 } }, "Done", log.miles ? ` \xB7 ${log.miles} mi` : "", log.mins ? ` \xB7 ${log.mins} min` : "", log.hr ? ` \xB7 ${log.hr} bpm avg` : "", log.rpe ? ` \xB7 RPE ${log.rpe}` : ""), log.done === !1 && /* @__PURE__ */ React.createElement("div", { className: "warn sm", style: { marginTop: 10 } }, "Missed")), w.note && /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { margin: "0 0 12px" } }, w.note), isRun && /* @__PURE__ */ React.createElement("div", { className: "panel" }, /* @__PURE__ */ React.createElement("div", { className: "sm", style: { lineHeight: 1.6 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "Before \u2014"), " ", day.q || day.long ? "12 min warm-up: 5 walk/jog, leg swings, calf prep, 4 strides." : "Walk 3 min, ease in."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "After \u2014"), " Walk 3\u20135 min. Never stop dead."), day.long && diffDays(today, date) <= 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "Fuel \u2014"), " Over 75 min: 30\u201360 g carbs/hr. Sodium in the bottle. Drink to thirst."), day.q && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "Effort \u2014"), " Fewer reps at the right speed beats more reps slower."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "Never \u2014"), " ibuprofen or naproxen around this run."))), isRun && sessionForDay(w, day) && !log.done && /* @__PURE__ */ React.createElement("button", { className: "primary", style: { marginTop: 12 }, onClick: goPacer }, "Run this on the treadmill pacer \u203A"), day.lift && /* @__PURE__ */ React.createElement("button", { className: "ghost", style: { width: "100%", marginTop: 12, textAlign: "left" }, onClick: goLift }, /* @__PURE__ */ React.createElement("span", { className: "mute sm" }, "Also today"), /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("strong", null, LIFTS[day.lift].name), " \u2014 ", LIFTS[day.lift].when, " ", /* @__PURE__ */ React.createElement("span", { className: "hi" }, "Open \u203A")), day.k !== "rest" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { border: 0, padding: 0 } }, /* @__PURE__ */ React.createElement("h2", { style: { marginTop: 0 } }, "Log it"), /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: pasteHealth }, "Paste from Health")), isRun && /* @__PURE__ */ React.createElement("div", { className: "grid2" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", null, "Minutes"), /* @__PURE__ */ React.createElement("input", { type: "number", inputMode: "decimal", value: form.mins, onChange: (e) => setForm({ ...form, mins: e.target.value }), placeholder: "45" })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", null, "Miles"), /* @__PURE__ */ React.createElement("input", { type: "number", inputMode: "decimal", step: "0.1", value: form.miles, onChange: (e) => setForm({ ...form, miles: e.target.value }), placeholder: "4.2" }))), /* @__PURE__ */ React.createElement("label", null, "How hard was it? (1 chat \xB7 10 all-out)"), /* @__PURE__ */ React.createElement("div", { className: "rpe" }, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => /* @__PURE__ */ React.createElement("button", { key: n, className: form.rpe === n ? "on" : "", onClick: () => setForm({ ...form, rpe: n }) }, n))), /* @__PURE__ */ React.createElement("label", null, "Any niggle? Where, and did it warm up or worsen?"), /* @__PURE__ */ React.createElement("input", { value: form.niggle, onChange: (e) => setForm({ ...form, niggle: e.target.value }), placeholder: "Nothing \u2014 or 'left Achilles, warmed up by 10 min'" }), /* @__PURE__ */ React.createElement("label", null, "Notes"), /* @__PURE__ */ React.createElement("textarea", { rows: 2, value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), placeholder: "Treadmill 1%, felt flat, slept 6h\u2026" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, marginTop: 14 } }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => save(!0) }, "Done"), /* @__PURE__ */ React.createElement("button", { onClick: () => save(!1), style: { whiteSpace: "nowrap" } }, "Missed")), form.niggle && /wors|sharp|limp|bone|shin/i.test(form.niggle) && /* @__PURE__ */ React.createElement("p", { className: "warn sm", style: { marginTop: 10 } }, "That reads like a stop-for-48-hours signal, not a warm-up ache. Bone pain on shin, foot or femur: stop entirely and see a physio.")), day.k === "rest" && /* @__PURE__ */ React.createElement("p", { className: "mute", style: { marginTop: 12 } }, "Rest is a session. Sleep is the lift you can't skip."));
+  }
+  function Week({ data, update, race, today, flash }) {
+    const [wk, setWk] = useState(Math.min(Math.max(weekOf(today, race), 1), TOTAL_WEEKS)), w = PLAN[wk - 1], mon = weekMonday(wk, race), days = daysFor(w), dates = days.map((_, i) => addDays(mon, i)), done = dates.reduce((s, d) => {
+      var _a;
+      return s + (parseFloat((_a = data.logs[d]) == null ? void 0 : _a.miles) || 0);
+    }, 0), pct = Math.min(100, Math.round(done / w.miles * 100)), liftsDone = data.lifts.filter((l) => l.date >= mon && l.date <= dates[6]).length, summary = () => {
+      const lines = [`Week ${wk} (${fmtD(mon)}\u2013${fmtD(dates[6])}) \u2014 planned ${w.miles} mi, logged ${done.toFixed(1)} mi, lifts ${liftsDone}/${w.lifts}`];
+      return dates.forEach((d, i) => {
+        const l = data.logs[d], p = days[i];
+        lines.push(`${DAYS[i]}: ${p.t} \u2014 ${l ? l.done ? `done${l.miles ? ` ${l.miles}mi` : ""}${l.mins ? ` ${l.mins}min` : ""}${l.hr ? ` ${l.hr}bpm` : ""}${l.rpe ? ` RPE${l.rpe}` : ""}${l.niggle ? ` niggle: ${l.niggle}` : ""}${l.note ? ` (${l.note})` : ""}` : "MISSED" : "\u2014"}`);
+      }), data.body.filter((b) => b.date >= mon && b.date <= dates[6]).forEach((b) => lines.push(`Body ${b.date}: ${b.kg ? b.kg + " kg" : ""} ${b.sys ? `BP ${b.sys}/${b.dia}` : ""}`)), lines.join(`
+`);
+    }, copy = async () => {
+      const t = summary();
+      try {
+        await navigator.clipboard.writeText(t), flash("Copied \u2014 paste it to Claude");
+      } catch (e) {
+        window.prompt("Copy this:", t);
+      }
+    };
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "row", style: { border: 0, padding: 0 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, PHASES[w.ph], w.down ? " \xB7 down week" : ""), /* @__PURE__ */ React.createElement("h1", null, "Week ", wk), /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, fmtD(mon), " \u2013 ", fmtD(dates[6]))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { className: "chip", disabled: wk <= 1, onClick: () => setWk(wk - 1) }, "\u2039"), /* @__PURE__ */ React.createElement("button", { className: "chip", disabled: wk >= TOTAL_WEEKS, onClick: () => setWk(wk + 1) }, "\u203A"))), /* @__PURE__ */ React.createElement("div", { className: "panel", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { padding: "0 0 8px" } }, /* @__PURE__ */ React.createElement("span", null, "Miles"), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, done.toFixed(1)), " ", /* @__PURE__ */ React.createElement("span", { className: "mute" }, "/ ", w.miles))), /* @__PURE__ */ React.createElement("div", { className: "bar" }, /* @__PURE__ */ React.createElement("div", { style: { width: pct + "%" } })), /* @__PURE__ */ React.createElement("div", { className: "row", style: { padding: "8px 0 0", border: 0 } }, /* @__PURE__ */ React.createElement("span", null, "Lifts"), /* @__PURE__ */ React.createElement("span", null, /* @__PURE__ */ React.createElement("strong", null, liftsDone), " ", /* @__PURE__ */ React.createElement("span", { className: "mute" }, "/ ", w.lifts)))), w.milestone && /* @__PURE__ */ React.createElement("p", { className: "hi sm", style: { margin: "12px 0 0" } }, "Milestone: ", w.milestone), w.note && /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { margin: "8px 0 0" } }, w.note), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, days.map((d, i) => {
+      const l = data.logs[dates[i]], isT = dates[i] === today;
+      return /* @__PURE__ */ React.createElement("div", { className: "row", key: i }, /* @__PURE__ */ React.createElement("div", { className: "stack", style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: isT ? "hi" : "mute", style: { width: 38, display: "inline-block" } }, DAYS[i]), /* @__PURE__ */ React.createElement("strong", null, d.t)), /* @__PURE__ */ React.createElement("div", { className: "sm mute", style: { paddingLeft: 38 } }, d.d)), /* @__PURE__ */ React.createElement("div", { className: "sm", style: { whiteSpace: "nowrap" } }, l != null && l.done ? /* @__PURE__ */ React.createElement("span", { className: "ok" }, "done") : (l == null ? void 0 : l.done) === !1 ? /* @__PURE__ */ React.createElement("span", { className: "warn" }, "missed") : dates[i] < today && d.k !== "rest" ? /* @__PURE__ */ React.createElement("span", { className: "mute" }, "\u2014") : ""));
+    })), /* @__PURE__ */ React.createElement("button", { style: { width: "100%", marginTop: 16 }, onClick: copy }, "Copy this week for Claude"), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { marginTop: 8 } }, "Paste it into the chat and I'll review it against the plan \u2014 alongside your Strava if that's connected."));
+  }
+  function Plan({ data, update, race, today }) {
+    const wkNow = weekOf(today, race), [open, setOpen] = useState(null), setRace = (v) => {
+      /^\d{4}-\d{2}-\d{2}$/.test(v) && update((p) => ({ ...p, settings: { ...p.settings, race: v } }));
+    }, reset = () => {
+      window.confirm("Delete all logged data? This can't be undone.") && update(() => ({ ...EMPTY, settings: { race } }));
+    };
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "The plan"), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { margin: "0 0 12px" } }, "32 weeks, anchored to race day. Change the date and everything shifts."), /* @__PURE__ */ React.createElement("div", { className: "panel" }, /* @__PURE__ */ React.createElement("label", { style: { marginTop: 0 } }, "Race day"), /* @__PURE__ */ React.createElement("input", { type: "date", value: race, onChange: (e) => setRace(e.target.value) }), /* @__PURE__ */ React.createElement("div", { className: "sm mute", style: { marginTop: 8 } }, "Week 1 starts ", fmt(weekMonday(1, race)), " (first session Wednesday). Peak long run ", fmt(addDays(weekMonday(29, race), 6)), ".")), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, PLAN.map((w) => {
+      const mon = weekMonday(w.wk, race), isNow = w.wk === wkNow, isOpen = open === w.wk;
+      return /* @__PURE__ */ React.createElement("div", { className: "wk" + (isNow ? " now" : ""), key: w.wk }, /* @__PURE__ */ React.createElement("button", { className: "ghost", style: { width: "100%", textAlign: "left", padding: 0, border: 0 }, onClick: () => setOpen(isOpen ? null : w.wk), "aria-expanded": isOpen }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { border: 0, padding: 0 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Wk ", w.wk), " ", /* @__PURE__ */ React.createElement("span", { className: "mute sm" }, fmtD(mon)), w.down && /* @__PURE__ */ React.createElement("span", { className: "tag", style: { marginLeft: 8 } }, "down"), w.milestone && /* @__PURE__ */ React.createElement("span", { className: "tag hi", style: { marginLeft: 8 } }, w.milestone)), /* @__PURE__ */ React.createElement("div", { className: "sm" }, /* @__PURE__ */ React.createElement("strong", null, w.miles), " ", /* @__PURE__ */ React.createElement("span", { className: "mute" }, "mi \xB7 ", w.lifts, " lifts"))), /* @__PURE__ */ React.createElement("div", { className: "sm mute", style: { marginTop: 2 } }, PHASES[w.ph], " \xB7 long: ", w.sun || daysFor(w)[6].d)), isOpen && /* @__PURE__ */ React.createElement("div", { className: "sm", style: { marginTop: 8, lineHeight: 1.6 } }, daysFor(w).map((d, i) => /* @__PURE__ */ React.createElement("div", { key: i }, /* @__PURE__ */ React.createElement("span", { className: "mute", style: { display: "inline-block", width: 38 } }, DAYS[i]), d.t, " ", /* @__PURE__ */ React.createElement("span", { className: "mute" }, "\u2014 ", d.d))), w.note && /* @__PURE__ */ React.createElement("div", { className: "mute", style: { marginTop: 6 } }, w.note)));
+    })), /* @__PURE__ */ React.createElement("h2", null, "Paces (from week 12)"), /* @__PURE__ */ React.createElement("div", { className: "panel sm" }, [["Easy", "10:30\u201311:30 /mi", "6:30\u20137:10 /km"], ["Long run", "10:15\u201311:00", "6:20\u20136:50"], ["Marathon pace", "9:00\u20139:05", "5:35\u20135:40"], ["Threshold", "8:10\u20138:25", "5:05\u20135:15"], ["Interval", "7:40\u20137:55", "4:45\u20134:55"]].map(([a, b, c]) => /* @__PURE__ */ React.createElement("div", { className: "row", key: a }, /* @__PURE__ */ React.createElement("span", null, a), /* @__PURE__ */ React.createElement("span", { className: "mute" }, b, " \xB7 ", c))), /* @__PURE__ */ React.createElement("p", { className: "mute", style: { margin: "10px 0 0" } }, "Weeks 1\u201310: ignore this table. Run by breathing.")), /* @__PURE__ */ React.createElement("h2", null, "Contingency"), /* @__PURE__ */ React.createElement("div", { className: "panel sm", style: { lineHeight: 1.6 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Miss \u22645 days"), " \u2014 resume, change nothing."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Miss 1\u20132 wks"), " \u2014 drop to the volume of two weeks prior, rebuild over 10 days."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Miss 3\u20134 wks"), " \u2014 goal becomes finishing. Rebuild to 60%, then +10%/wk."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Miss 6+ wks"), " \u2014 switch to the half."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Niggle"), " \u2014 swap one easy run for 40 min on the rower."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, "Cut order in a bad week"), " \u2014 Sat run \u2192 Lift C \u2192 Wed run \u2192 Tue quality. Never the long run or Lift B.")), /* @__PURE__ */ React.createElement("h2", null, "Backup"), /* @__PURE__ */ React.createElement("div", { className: "grid2" }, /* @__PURE__ */ React.createElement("button", { onClick: async () => {
+      const t = JSON.stringify(data);
+      try {
+        await navigator.clipboard.writeText(t), window.alert("Copied. Paste it into Notes or a file to keep it.");
+      } catch (e) {
+        window.prompt("Copy this:", t);
+      }
+    } }, "Export all data"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+      const t = window.prompt("Paste an export here:");
+      if (t)
+        try {
+          const d = JSON.parse(t);
+          if (!d.logs) throw 0;
+          update(() => ({ ...EMPTY, ...d })), window.alert("Imported.");
+        } catch (e) {
+          window.alert("That wasn't a valid export.");
+        }
+    } }, "Import")), /* @__PURE__ */ React.createElement("details", { style: { marginTop: 20 } }, /* @__PURE__ */ React.createElement("summary", { className: "sm mute" }, "Danger zone"), /* @__PURE__ */ React.createElement("button", { className: "warn", style: { marginTop: 8 }, onClick: reset }, "Delete all logged data")));
+  }
+  function Lifts({ data, update, race, today, flash }) {
+    const wk = Math.min(Math.max(weekOf(today, race), 1), TOTAL_WEEKS), build = wk <= 14, dayIdx = dow(today), suggested = daysFor(PLAN[wk - 1])[dayIdx].lift || "A", [sess, setSess] = useState(suggested), L = LIFTS[sess], last = [...data.lifts].reverse().find((l) => l.session === sess), [form, setForm] = useState({});
+    useEffect(() => {
+      setForm({});
+    }, [sess]);
+    const setsFor = (ex) => build ? ex.sets : Math.max(2, ex.sets - 1), get = (id) => {
+      var _a, _b, _c;
+      return form[id] || { w: (_c = (_b = (_a = last == null ? void 0 : last.ex) == null ? void 0 : _a[id]) == null ? void 0 : _b.w) != null ? _c : "", reps: Array(setsFor(L.ex.find((e) => e.id === id))).fill("") };
+    }, setEx = (id, patch) => setForm((f) => ({ ...f, [id]: { ...get(id), ...patch } })), hint = (ex) => {
+      var _a;
+      const prev = (_a = last == null ? void 0 : last.ex) == null ? void 0 : _a[ex.id];
+      if (!prev) return null;
+      const reps2 = (prev.reps || []).map(Number).filter((n) => n > 0);
+      return reps2.length ? reps2.every((r) => r >= ex.hi) ? build ? { c: "ok", t: ex.load === "bw" ? "All sets at the top \u2014 progress: harder variation or 4 s eccentric" : "All sets at the top \u2014 progress: next dumbbell up, or 4 s eccentric if you're already on 10s" } : { c: "ok", t: "At the top \u2014 hold it here (maintenance)" } : reps2.some((r) => r < ex.lo) ? { c: "warn", t: "Below the range \u2014 drop the load or add rest" } : { c: "mute", t: "Building \u2014 same load, chase the top of the range" } : null;
+    }, save = () => {
+      const ex = {};
+      L.ex.forEach((e) => {
+        const g = get(e.id);
+        ex[e.id] = { w: g.w, reps: g.reps };
+      }), update((p) => ({ ...p, lifts: [...p.lifts.filter((l) => !(l.date === today && l.session === sess)), { date: today, session: sess, ex }] })), flash("Session saved");
+    };
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Lifts"), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { margin: "0 0 10px" } }, build ? "Weeks 1\u201314: build. Push it." : "Maintenance from week 15. Hold the load, hold the reps.", " Lower body: leave 2\u20133 reps in reserve. Breathe out through the hard part."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, ["A", "B", "C"].map((k) => /* @__PURE__ */ React.createElement("button", { key: k, className: "chip" + (sess === k ? " on" : ""), onClick: () => setSess(k), disabled: k === "C" && !build }, LIFTS[k].name, k === suggested ? " \xB7 today" : ""))), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { margin: "10px 0 0" } }, L.when, last ? ` \xB7 last done ${fmtD(last.date)}` : " \xB7 no sessions logged yet"), L.ex.map((ex) => {
+      const g = get(ex.id), h = hint(ex), n = setsFor(ex);
+      return /* @__PURE__ */ React.createElement("div", { className: "panel", key: ex.id, style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, ex.n)), /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, n, " \xD7 ", ex.lo, "\u2013", ex.hi, ex.per ? ` per ${ex.per}` : "", ex.rir ? " \xB7 RIR 2\u20133" : ""), h && /* @__PURE__ */ React.createElement("div", { className: h.c + " sm", style: { marginTop: 4 } }, h.t), /* @__PURE__ */ React.createElement("div", { className: "exset" }, ex.load === "db" ? /* @__PURE__ */ React.createElement("input", { type: "number", inputMode: "decimal", placeholder: "kg", value: g.w, onChange: (e) => setEx(ex.id, { w: e.target.value }), "aria-label": "Load in kg" }) : /* @__PURE__ */ React.createElement("span", { className: "sm mute" }, "bodyweight"), /* @__PURE__ */ React.createElement("div", { className: "reps" }, Array.from({ length: n }).map((_, i) => {
+        var _a, _b, _c, _d;
+        return /* @__PURE__ */ React.createElement("input", { key: i, type: "number", inputMode: "numeric", placeholder: ((_c = (_b = (_a = last == null ? void 0 : last.ex) == null ? void 0 : _a[ex.id]) == null ? void 0 : _b.reps) == null ? void 0 : _c[i]) || "reps", value: (_d = g.reps[i]) != null ? _d : "", onChange: (e) => {
+          const r = [...g.reps];
+          r[i] = e.target.value, setEx(ex.id, { reps: r });
+        }, "aria-label": `Set ${i + 1} reps` });
+      }))));
+    }), L.core && /* @__PURE__ */ React.createElement("div", { className: "panel sm", style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("strong", null, "Core"), /* @__PURE__ */ React.createElement("div", { className: "mute", style: { marginTop: 4 } }, L.core)), /* @__PURE__ */ React.createElement("button", { className: "primary", style: { marginTop: 14 }, onClick: save }, "Save session"), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { marginTop: 10 } }, "Placeholders show last time's reps. Load is the least important variable \u2014 proximity to failure is what grows muscle at 10 kg."));
+  }
+  function Trends({ data, update, race, today, flash }) {
+    const [kg, setKg] = useState(""), [sys, setSys] = useState(""), [dia, setDia] = useState(""), addBody = () => {
+      !kg && !sys || (update((p) => ({ ...p, body: [...p.body.filter((b) => b.date !== today), { date: today, kg, sys, dia }].sort((a, b) => a.date < b.date ? -1 : 1) })), setKg(""), setSys(""), setDia(""), flash("Saved"));
+    }, body = data.body, recent = body.filter((b) => b.kg && diffDays(b.date, today) <= 28), avg = recent.length ? recent.reduce((s, b) => s + parseFloat(b.kg), 0) / recent.length : null, prev = body.filter((b) => b.kg && diffDays(b.date, today) > 28 && diffDays(b.date, today) <= 56), prevAvg = prev.length ? prev.reduce((s, b) => s + parseFloat(b.kg), 0) / prev.length : null, wkNow = weekOf(today, race), lastBP = [...body].reverse().find((b) => b.sys), weeks = PLAN.filter((w) => w.wk <= Math.min(wkNow, TOTAL_WEEKS)).map((w) => {
+      const mon = weekMonday(w.wk, race), done = Array.from({ length: 7 }).reduce((s, _, i) => {
+        var _a;
+        return s + (parseFloat((_a = data.logs[addDays(mon, i)]) == null ? void 0 : _a.miles) || 0);
+      }, 0);
+      return { wk: w.wk, plan: w.miles, done };
+    }), maxM = Math.max(42, ...weeks.map((w) => Math.max(w.plan, w.done))), checks = data.checks, setCheck = (k, v) => update((p) => ({ ...p, checks: { ...p.checks, [k]: v } })), p8 = parseTime(checks.parkrun8), p16 = parseTime(checks.parkrun16), half = parseTime(checks.half), gate = half ? half < 6600 ? { c: "ok", t: "Sub-4 is comfortably on. Target 3:55." } : half < 6900 ? { c: "ok", t: "On, but it needs a clean execution. Target 3:58." } : half < 7200 ? { c: "warn", t: "Marginal. Plan 4:05\u20134:10 and let sub-4 come to you." } : { c: "warn", t: "Change the goal to finishing strong. That is not failure." } : null;
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Trends"), /* @__PURE__ */ React.createElement("h2", { style: { marginTop: 8 } }, "Body"), /* @__PURE__ */ React.createElement("div", { className: "panel" }, /* @__PURE__ */ React.createElement("div", { className: "grid3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: { marginTop: 0 } }, "Weight kg"), /* @__PURE__ */ React.createElement("input", { type: "number", inputMode: "decimal", step: "0.1", value: kg, onChange: (e) => setKg(e.target.value), placeholder: "73.3" })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: { marginTop: 0 } }, "BP sys"), /* @__PURE__ */ React.createElement("input", { type: "number", inputMode: "numeric", value: sys, onChange: (e) => setSys(e.target.value), placeholder: "124" })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: { marginTop: 0 } }, "BP dia"), /* @__PURE__ */ React.createElement("input", { type: "number", inputMode: "numeric", value: dia, onChange: (e) => setDia(e.target.value), placeholder: "78" }))), /* @__PURE__ */ React.createElement("button", { style: { width: "100%", marginTop: 10 }, onClick: addBody }, "Save today's reading"), /* @__PURE__ */ React.createElement("div", { className: "row", style: { marginTop: 6 } }, /* @__PURE__ */ React.createElement("span", null, "4-week average"), /* @__PURE__ */ React.createElement("span", null, avg ? /* @__PURE__ */ React.createElement("strong", null, avg.toFixed(1), " kg") : /* @__PURE__ */ React.createElement("span", { className: "mute" }, "\u2014"), avg && prevAvg ? /* @__PURE__ */ React.createElement("span", { className: "sm " + (avg - prevAvg < -0.3 && wkNow >= 15 ? "warn" : "mute") }, " (", avg - prevAvg >= 0 ? "+" : "", (avg - prevAvg).toFixed(1), " vs prior 4 wks)") : null)), /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("span", null, "Last BP"), /* @__PURE__ */ React.createElement("span", null, lastBP ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("strong", null, lastBP.sys, "/", lastBP.dia), " ", /* @__PURE__ */ React.createElement("span", { className: "sm mute" }, fmtD(lastBP.date))) : /* @__PURE__ */ React.createElement("span", { className: "mute" }, "\u2014"))), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { margin: "8px 0 0" } }, wkNow < 15 ? "Weeks 1\u201314: rising 0.2\u20130.3 kg/week is the plan. Don't cut." : "From week 15: falling weight means underfuelling \u2014 add 60\u201380 g carbs/day. Lightheaded or BP drifting low: take the readings to your GP.")), /* @__PURE__ */ React.createElement("h2", null, "Miles per week"), /* @__PURE__ */ React.createElement("div", { className: "panel" }, weeks.length === 0 ? /* @__PURE__ */ React.createElement("p", { className: "mute sm", style: { margin: 0 } }, "Nothing yet. Week 1 starts ", fmtD(weekMonday(1, race)), ".") : /* @__PURE__ */ React.createElement("svg", { viewBox: `0 0 ${Math.max(300, weeks.length * 22)} 120`, width: "100%", height: "120", role: "img", "aria-label": "Planned versus logged miles by week" }, weeks.map((w, i) => {
+      const x = i * 22 + 4, hp = w.plan / maxM * 100, hd = w.done / maxM * 100;
+      return /* @__PURE__ */ React.createElement("g", { key: w.wk }, /* @__PURE__ */ React.createElement("rect", { x, y: 110 - hp, width: 8, height: hp, fill: "#2C4440" }), /* @__PURE__ */ React.createElement("rect", { x: x + 9, y: 110 - hd, width: 8, height: hd, fill: w.done >= w.plan * 0.85 ? "#F2C14E" : "#E0704A" }), (w.wk % 4 === 0 || i === 0) && /* @__PURE__ */ React.createElement("text", { x: x + 8, y: 119, fontSize: "8", fill: "#8FA39C", textAnchor: "middle" }, w.wk));
+    })), /* @__PURE__ */ React.createElement("div", { className: "sm mute", style: { marginTop: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-block", width: 10, height: 10, background: "#2C4440", marginRight: 6, verticalAlign: "middle" } }), "planned ", /* @__PURE__ */ React.createElement("span", { style: { display: "inline-block", width: 10, height: 10, background: "#F2C14E", margin: "0 6px 0 12px", verticalAlign: "middle" } }), "logged (amber if under 85%)")), /* @__PURE__ */ React.createElement("h2", null, "Checkpoints"), /* @__PURE__ */ React.createElement("div", { className: "panel" }, /* @__PURE__ */ React.createElement("label", { style: { marginTop: 0 } }, "Week 8 parkrun (mm:ss)"), /* @__PURE__ */ React.createElement("input", { value: checks.parkrun8 || "", onChange: (e) => setCheck("parkrun8", e.target.value), placeholder: "28:30" }), p8 && /* @__PURE__ */ React.createElement("div", { className: "sm mute", style: { marginTop: 4 } }, "Baseline. Riegel says ", fmtSec(riegel(p8, 5)), " marathon today \u2014 ignore it, you haven't built the endurance yet."), /* @__PURE__ */ React.createElement("label", null, "Week 16 parkrun (mm:ss)"), /* @__PURE__ */ React.createElement("input", { value: checks.parkrun16 || "", onChange: (e) => setCheck("parkrun16", e.target.value), placeholder: "26:30" }), p16 && /* @__PURE__ */ React.createElement("div", { className: "sm " + (p16 <= 1590 ? "ok" : "mute"), style: { marginTop: 4 } }, p16 <= 1590 ? "On track \u2014 26:30 or better was the target." : "Behind the 26:30 marker \u2014 not a verdict, but keep the easy days easy and the threshold work honest.", p8 ? ` ${fmtSec(p8 - p16)} faster than week 8.` : ""), /* @__PURE__ */ React.createElement("label", null, "Week 23 half marathon (h:mm:ss)"), /* @__PURE__ */ React.createElement("input", { value: checks.half || "", onChange: (e) => setCheck("half", e.target.value), placeholder: "1:52:00" }), half && /* @__PURE__ */ React.createElement("div", { className: "sm", style: { marginTop: 6 } }, /* @__PURE__ */ React.createElement("div", null, "Riegel projection: ", /* @__PURE__ */ React.createElement("strong", null, fmtSec(riegel(half, 21.0975))), " marathon"), /* @__PURE__ */ React.createElement("div", { className: gate.c, style: { marginTop: 4 } }, /* @__PURE__ */ React.createElement("strong", null, gate.t)), /* @__PURE__ */ React.createElement("div", { className: "mute", style: { marginTop: 4 } }, "Make the call now and commit to it. Refusing to update the target is how mile 20 goes wrong."))), /* @__PURE__ */ React.createElement("h2", null, "Race result"), /* @__PURE__ */ React.createElement("div", { className: "panel" }, /* @__PURE__ */ React.createElement("label", { style: { marginTop: 0 } }, "Marathon (h:mm:ss)"), /* @__PURE__ */ React.createElement("input", { value: checks.marathon || "", onChange: (e) => setCheck("marathon", e.target.value), placeholder: "3:5x:xx" }), parseTime(checks.marathon) && /* @__PURE__ */ React.createElement("div", { className: "hi", style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement("strong", null, parseTime(checks.marathon) < 14400 ? "Sub-4. At 46, off the couch, with the muscle intact." : "A marathon finish. At 46, off the couch, with the muscle intact."))));
+  }
+  function Pacer({ data, update, race, today, flash }) {
+    const wk = weekOf(today, race), w = wk >= 1 && wk <= TOTAL_WEEKS ? PLAN[wk - 1] : null, todayDay = w ? daysFor(w)[dow(today)] : null, suggested = w ? sessionForDay(w, todayDay) : null, [sid, setSid] = useState(suggested || "easy_30"), [group, setGroup] = useState(suggested ? SESSIONS[suggested].group : "Easy"), [offset, setOffset] = useState(0), [state, setState] = useState("idle"), [elapsed, setElapsed] = useState(0), [logForm, setLogForm] = useState({ rpe: 0, niggle: "" }), lastTick = useRef(null), audio = useRef(null), lock = useRef(null), lastIdx = useRef(-1), sess = SESSIONS[sid], total = sessionSecs(sess), bounds = useMemo(() => {
+      let t = 0;
+      return sess.segs.map((g) => {
+        const b = { start: t, end: t + g.s };
+        return t += g.s, b;
+      });
+    }, [sess]), idx = state === "finished" ? sess.segs.length - 1 : Math.max(0, bounds.findIndex((b) => elapsed < b.end)), cur = sess.segs[idx], nxt = sess.segs[idx + 1], remain = cur ? bounds[idx].end - elapsed : 0, target = (g) => g ? g.kmh >= 8 ? +(g.kmh + offset).toFixed(1) : g.kmh : 0, beep = (n = 1, hz = 880) => {
+      try {
+        const ctx = audio.current;
+        if (!ctx) return;
+        for (let i = 0; i < n; i++) {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = "sine", o.frequency.value = hz, g.gain.value = 0.25, o.connect(g), g.connect(ctx.destination), o.start(ctx.currentTime + i * 0.3), o.stop(ctx.currentTime + i * 0.3 + 0.18);
+        }
+      } catch (e) {
+      }
+    }, say = (t) => {
+      try {
+        if (!("speechSynthesis" in window)) return;
+        const u = new SpeechSynthesisUtterance(t);
+        u.rate = 1.05, window.speechSynthesis.cancel(), window.speechSynthesis.speak(u);
+      } catch (e) {
+      }
+    };
+    useEffect(() => {
+      if (state !== "running") return;
+      lastTick.current = Date.now();
+      const id = setInterval(() => {
+        const n = Date.now();
+        setElapsed((e) => e + (n - lastTick.current) / 1e3), lastTick.current = n;
+      }, 250);
+      return () => clearInterval(id);
+    }, [state]), useEffect(() => {
+      var _a, _b;
+      if (state === "running") {
+        if (elapsed >= total) {
+          setState("finished"), beep(3, 660), say("Session complete. Keep walking.");
+          try {
+            (_b = (_a = lock.current) == null ? void 0 : _a.release) == null || _b.call(_a);
+          } catch (e) {
+          }
+          return;
+        }
+        if (idx !== lastIdx.current) {
+          if (lastIdx.current >= 0) {
+            beep(2);
+            const t = target(cur);
+            say(`${cur.label}. ${t} ${cur.inc ? `, ${cur.inc} percent` : ""}`);
+          }
+          lastIdx.current = idx;
+        } else nxt && remain <= 10 && remain > 9.7 && beep(1, 660);
+      }
+    }, [elapsed, idx, state]);
+    const start = async () => {
+      var _a, _b;
+      try {
+        audio.current || (audio.current = new (window.AudioContext || window.webkitAudioContext)()), await audio.current.resume();
+      } catch (e) {
+      }
+      try {
+        lock.current = await ((_b = (_a = navigator.wakeLock) == null ? void 0 : _a.request) == null ? void 0 : _b.call(_a, "screen"));
+      } catch (e) {
+      }
+      lastIdx.current = 0, setElapsed(0), setState("running"), beep(1), say(`${sess.segs[0].label}. ${target(sess.segs[0])}`);
+    }, pause = () => setState("paused"), resume = () => {
+      lastTick.current = Date.now(), setState("running");
+    }, skip = () => {
+      nxt && setElapsed(bounds[idx].end);
+    }, stop = () => {
+      var _a, _b;
+      setState("finished");
+      try {
+        (_b = (_a = lock.current) == null ? void 0 : _a.release) == null || _b.call(_a);
+      } catch (e) {
+      }
+    }, reset = () => {
+      setState("idle"), setElapsed(0), lastIdx.current = -1;
+    }, choose = (id) => {
+      reset(), setSid(id);
+    }, doneMi = useMemo(() => {
+      let k = 0;
+      return sess.segs.forEach((g, i) => {
+        const b = bounds[i], s = Math.max(0, Math.min(elapsed, b.end) - b.start);
+        k += target(g) * s / 3600;
+      }), k / 1.609344;
+    }, [elapsed, sess, offset]), saveLog = () => {
+      const mins = Math.round(elapsed / 60), miles = doneMi.toFixed(1);
+      update((p) => ({ ...p, logs: { ...p.logs, [today]: { ...p.logs[today] || {}, done: !0, mins, miles, rpe: logForm.rpe, niggle: logForm.niggle, note: `Pacer: ${sess.name}${offset ? ` (${offset > 0 ? "+" : ""}${offset} km/h)` : ""}`, kind: "run", ts: Date.now() } } })), flash("Logged to today"), reset();
+    }, groups = ["Quality", "Easy", "Walk-jog", "Long"], list = Object.values(SESSIONS).filter((x) => x.group === group);
+    if (state === "idle") return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Pacer"), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { margin: "0 0 10px" } }, "Prop the iPad in the holder. It shows the target speed and counts down each segment; you press the quick-speed keys. It speaks each change and beeps 10 s before it."), suggested && /* @__PURE__ */ React.createElement("button", { className: "ghost", style: { width: "100%", textAlign: "left", marginBottom: 10, borderColor: "var(--hi)" }, onClick: () => choose(suggested) }, /* @__PURE__ */ React.createElement("span", { className: "sm mute" }, "Today's session"), /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("strong", null, SESSIONS[suggested].name), " ", /* @__PURE__ */ React.createElement("span", { className: "mute sm" }, "\xB7 ", Math.round(sessionSecs(SESSIONS[suggested]) / 60), " min \xB7 ", sessionDistanceMi(SESSIONS[suggested]).toFixed(1), " mi")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, groups.map((g) => /* @__PURE__ */ React.createElement("button", { key: g, className: "chip" + (group === g ? " on" : ""), onClick: () => setGroup(g) }, g))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6 } }, list.map((x) => /* @__PURE__ */ React.createElement("div", { className: "row", key: x.id, onClick: () => choose(x.id), style: { cursor: "pointer" } }, /* @__PURE__ */ React.createElement("span", { className: x.id === sid ? "hi" : "" }, x.name), /* @__PURE__ */ React.createElement("span", { className: "sm mute" }, Math.round(sessionSecs(x) / 60), " min \xB7 ", sessionDistanceMi(x).toFixed(1), " mi")))), /* @__PURE__ */ React.createElement("div", { className: "panel", style: { marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { padding: 0, border: 0 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, sess.name), /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, Math.round(total / 60), " min \xB7 ", sessionDistanceMi(sess, offset).toFixed(1), " mi \xB7 ", sess.segs.length, " segments"))), sess.group !== "Walk-jog" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", null, "Speed offset for running segments (km/h)"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: () => setOffset((o) => +(o - 0.1).toFixed(1)) }, "\u22120.1"), /* @__PURE__ */ React.createElement("strong", { style: { minWidth: 56, textAlign: "center" } }, offset > 0 ? "+" : "", offset.toFixed(1)), /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: () => setOffset((o) => +(o + 0.1).toFixed(1)) }, "+0.1"), /* @__PURE__ */ React.createElement("span", { className: "sm mute" }, "Last one felt under RPE 7? +0.2. Couldn't finish? \u22120.3."))), /* @__PURE__ */ React.createElement("button", { className: "primary", style: { marginTop: 14 }, onClick: start }, "Start \u2014 belt at ", target(sess.segs[0]), " km/h"), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { marginTop: 8 } }, "Speeds are km/h at 1% unless shown. Calibrated for week 12+; before that, treat them as ceilings.")));
+    if (state === "finished") return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Done"), /* @__PURE__ */ React.createElement("div", { className: "panel" }, /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("span", null, sess.name), /* @__PURE__ */ React.createElement("span", { className: "mute" }, hms(elapsed))), /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("span", null, "Distance (from targets)"), /* @__PURE__ */ React.createElement("strong", null, doneMi.toFixed(1), " mi")), /* @__PURE__ */ React.createElement("label", null, "How hard? (1 chat \xB7 10 all-out)"), /* @__PURE__ */ React.createElement("div", { className: "rpe" }, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => /* @__PURE__ */ React.createElement("button", { key: n, className: logForm.rpe === n ? "on" : "", onClick: () => setLogForm({ ...logForm, rpe: n }) }, n))), /* @__PURE__ */ React.createElement("label", null, "Any niggle?"), /* @__PURE__ */ React.createElement("input", { value: logForm.niggle, onChange: (e) => setLogForm({ ...logForm, niggle: e.target.value }), placeholder: "Nothing" }), /* @__PURE__ */ React.createElement("button", { className: "primary", style: { marginTop: 14 }, onClick: saveLog }, "Log it to today"), /* @__PURE__ */ React.createElement("button", { className: "ghost", style: { width: "100%", marginTop: 8 }, onClick: reset }, "Discard")), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { marginTop: 10 } }, "Keep walking until your breathing is normal. Distance assumes you matched the targets \u2014 edit it in Today if the treadmill said otherwise."));
+    const isRec = /Recovery|Walk|Cool/.test(cur.label);
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "row", style: { border: 0, padding: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, sess.name), /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, hms(elapsed), " / ", hms(total))), /* @__PURE__ */ React.createElement("div", { className: "bar", style: { margin: "6px 0 12px" } }, /* @__PURE__ */ React.createElement("div", { style: { width: elapsed / total * 100 + "%" } })), /* @__PURE__ */ React.createElement("div", { className: "pace " + (isRec ? "rec" : "on") }, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, cur.label, state === "paused" ? " \u2014 paused" : ""), /* @__PURE__ */ React.createElement("div", { className: "big" }, mmss(remain)), /* @__PURE__ */ React.createElement("div", { className: "spd" }, target(cur), " ", /* @__PURE__ */ React.createElement("span", { className: "sm mute", style: { fontSize: 18 } }, "km/h")), /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, kmhToMph(target(cur)), " mph \xB7 ", cur.inc, "% incline"), nxt && /* @__PURE__ */ React.createElement("div", { className: "lbl mute", style: { marginTop: 14 } }, "Next: ", nxt.label, " \xB7 ", /* @__PURE__ */ React.createElement("strong", { className: "hi" }, target(nxt)), " km/h", nxt.inc !== cur.inc ? ` \xB7 ${nxt.inc}%` : "")), /* @__PURE__ */ React.createElement("div", { className: "ctrl" }, state === "running" ? /* @__PURE__ */ React.createElement("button", { onClick: pause }, "Pause") : /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: resume }, "Resume"), /* @__PURE__ */ React.createElement("button", { onClick: skip, disabled: !nxt }, "Skip \u203A"), /* @__PURE__ */ React.createElement("button", { onClick: stop, className: "warn" }, "End")), /* @__PURE__ */ React.createElement("div", { className: "segs" }, sess.segs.map((g, i) => /* @__PURE__ */ React.createElement("div", { className: "row " + (i < idx ? "done" : i === idx ? "cur" : ""), key: i }, /* @__PURE__ */ React.createElement("span", null, g.label), /* @__PURE__ */ React.createElement("span", { className: "sm" }, mmss(g.s), " \xB7 ", target(g), " km/h \xB7 ", g.inc, "%")))));
+  }
+  window.MarathonApp = App;
+})();
+
+</script>
+<script>
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(window.MarathonApp));
+</script>
+</body>
+</html>

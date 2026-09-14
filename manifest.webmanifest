@@ -1,0 +1,10 @@
+{
+  "name": "Sub-4 Marathon Companion",
+  "short_name": "Sub-4",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#12211F",
+  "theme_color": "#12211F",
+  "icons": [{ "src": "icon.png", "sizes": "180x180", "type": "image/png" }]
+}
