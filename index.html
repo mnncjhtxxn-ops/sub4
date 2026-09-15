@@ -172,11 +172,14 @@ if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").ca
     const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
     return h ? `${h}:${pad(m)}:${pad(x)}` : `${m}:${pad(x)}`;
   };
-  function parseHealthLine(text) {
-    const m = (text || "").match(/HEALTH\|([\d-]+)\|([\d.]*)\|([\d.]*)\|(\d*)\|([\d.]*)\|(\d*)\|(\d*)/);
-    if (!m) return null;
-    const [, date, mins, miles, hr, kg, sys, dia] = m;
-    return { date, mins, miles, hr, kg, sys, dia };
+  function parseHealthLines(text) {
+    const out = [], re = /HEALTH\|([\d-]+)\|([\d.]*)\|([\d.]*)\|(\d*)\|([\d.]*)\|(\d*)\|(\d*)/g;
+    let m;
+    for (; m = re.exec(text || ""); ) {
+      const [, date, mins, miles, hr, kg, sys, dia] = m;
+      out.push({ date, mins, miles, hr, kg, sys, dia });
+    }
+    return out;
   }
   function applyHealth(p, h) {
     let next = { ...p };
@@ -322,8 +325,10 @@ if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").ca
         } catch (e) {
         }
         try {
-          const h = decodeURIComponent((window.location.hash || "").replace(/^#/, "")), hl = parseHealthLine(h);
-          hl && (d = applyHealth(d, hl), await window.storage.set(STORE_KEY, JSON.stringify(d)), window.history.replaceState(null, "", window.location.pathname), setToast("Imported from Health"), setTimeout(() => setToast(""), 2e3));
+          const h = decodeURIComponent((window.location.hash || "").replace(/^#/, "")), hls = parseHealthLines(h);
+          hls.length && (hls.forEach((x) => {
+            d = applyHealth(d, x);
+          }), await window.storage.set(STORE_KEY, JSON.stringify(d)), window.history.replaceState(null, "", window.location.pathname), setToast(`Imported ${hls.length} from Health`), setTimeout(() => setToast(""), 2e3));
         } catch (e) {
         }
         setData(d), setLoaded(!0);
@@ -358,12 +363,14 @@ if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").ca
       } catch (e) {
         t = window.prompt("Paste the HEALTH line from the Shortcut:") || "";
       }
-      const h = parseHealthLine(t);
-      if (!h) {
+      const hs = parseHealthLines(t);
+      if (!hs.length) {
         flash("No HEALTH line found");
         return;
       }
-      update((p) => applyHealth(p, h)), setForm((f) => ({ ...f, mins: h.mins || f.mins, miles: h.miles || f.miles })), flash(`Imported ${h.date}`);
+      update((p) => hs.reduce((acc, x) => applyHealth(acc, x), p));
+      const h = hs.find((x) => x.date === date);
+      h && setForm((f) => ({ ...f, mins: h.mins || f.mins, miles: h.miles || f.miles })), flash(hs.length === 1 ? `Imported ${hs[0].date}` : `Imported ${hs.length} days`);
     };
     return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "row", style: { border: 0, padding: 0 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, "Week ", wk, " of ", TOTAL_WEEKS, " \xB7 ", PHASES[w.ph], w.down ? " \xB7 down week" : ""), /* @__PURE__ */ React.createElement("h1", null, fmt(date))), /* @__PURE__ */ React.createElement("div", { className: "sm mute", style: { textAlign: "right" } }, daysToRace, " days", /* @__PURE__ */ React.createElement("br", null), "to race")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: () => setDate(addDays(date, -1)), "aria-label": "Previous day" }, "\u2039"), /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: () => setDate(today) }, "Today"), /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: () => setDate(addDays(date, 1)), "aria-label": "Next day" }, "\u203A")), /* @__PURE__ */ React.createElement("div", { className: "hero" }, /* @__PURE__ */ React.createElement("div", { className: "kicker" }, day.k === "rest" ? "Recovery" : day.k === "race" ? "Race day" : day.q ? "Quality session" : day.long ? "Long run" : day.k === "lift" ? "Strength" : "Easy day"), /* @__PURE__ */ React.createElement("div", { className: "title" }, day.t), /* @__PURE__ */ React.createElement("div", { className: "desc" }, day.d), log.done && /* @__PURE__ */ React.createElement("div", { className: "ok sm", style: { marginTop: 10 } }, "Done", log.miles ? ` \xB7 ${log.miles} mi` : "", log.mins ? ` \xB7 ${log.mins} min` : "", log.hr ? ` \xB7 ${log.hr} bpm avg` : "", log.rpe ? ` \xB7 RPE ${log.rpe}` : ""), log.done === !1 && /* @__PURE__ */ React.createElement("div", { className: "warn sm", style: { marginTop: 10 } }, "Missed")), w.note && /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { margin: "0 0 12px" } }, w.note), isRun && /* @__PURE__ */ React.createElement("div", { className: "panel" }, /* @__PURE__ */ React.createElement("div", { className: "sm", style: { lineHeight: 1.6 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "Before \u2014"), " ", day.q || day.long ? "12 min warm-up: 5 walk/jog, leg swings, calf prep, 4 strides." : "Walk 3 min, ease in."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "After \u2014"), " Walk 3\u20135 min. Never stop dead."), day.long && diffDays(today, date) <= 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "Fuel \u2014"), " Over 75 min: 30\u201360 g carbs/hr. Sodium in the bottle. Drink to thirst."), day.q && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "Effort \u2014"), " Fewer reps at the right speed beats more reps slower."), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "Never \u2014"), " ibuprofen or naproxen around this run."))), isRun && sessionForDay(w, day) && !log.done && /* @__PURE__ */ React.createElement("button", { className: "primary", style: { marginTop: 12 }, onClick: goPacer }, "Run this on the treadmill pacer \u203A"), day.lift && /* @__PURE__ */ React.createElement("button", { className: "ghost", style: { width: "100%", marginTop: 12, textAlign: "left" }, onClick: goLift }, /* @__PURE__ */ React.createElement("span", { className: "mute sm" }, "Also today"), /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("strong", null, LIFTS[day.lift].name), " \u2014 ", LIFTS[day.lift].when, " ", /* @__PURE__ */ React.createElement("span", { className: "hi" }, "Open \u203A")), day.k !== "rest" && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "row", style: { border: 0, padding: 0 } }, /* @__PURE__ */ React.createElement("h2", { style: { marginTop: 0 } }, "Log it"), /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: pasteHealth }, "Paste from Health")), isRun && /* @__PURE__ */ React.createElement("div", { className: "grid2" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", null, "Minutes"), /* @__PURE__ */ React.createElement("input", { type: "number", inputMode: "decimal", value: form.mins, onChange: (e) => setForm({ ...form, mins: e.target.value }), placeholder: "45" })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", null, "Miles"), /* @__PURE__ */ React.createElement("input", { type: "number", inputMode: "decimal", step: "0.1", value: form.miles, onChange: (e) => setForm({ ...form, miles: e.target.value }), placeholder: "4.2" }))), /* @__PURE__ */ React.createElement("label", null, "How hard was it? (1 chat \xB7 10 all-out)"), /* @__PURE__ */ React.createElement("div", { className: "rpe" }, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => /* @__PURE__ */ React.createElement("button", { key: n, className: form.rpe === n ? "on" : "", onClick: () => setForm({ ...form, rpe: n }) }, n))), /* @__PURE__ */ React.createElement("label", null, "Any niggle? Where, and did it warm up or worsen?"), /* @__PURE__ */ React.createElement("input", { value: form.niggle, onChange: (e) => setForm({ ...form, niggle: e.target.value }), placeholder: "Nothing \u2014 or 'left Achilles, warmed up by 10 min'" }), /* @__PURE__ */ React.createElement("label", null, "Notes"), /* @__PURE__ */ React.createElement("textarea", { rows: 2, value: form.note, onChange: (e) => setForm({ ...form, note: e.target.value }), placeholder: "Treadmill 1%, felt flat, slept 6h\u2026" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, marginTop: 14 } }, /* @__PURE__ */ React.createElement("button", { className: "primary", onClick: () => save(!0) }, "Done"), /* @__PURE__ */ React.createElement("button", { onClick: () => save(!1), style: { whiteSpace: "nowrap" } }, "Missed")), form.niggle && /wors|sharp|limp|bone|shin/i.test(form.niggle) && /* @__PURE__ */ React.createElement("p", { className: "warn sm", style: { marginTop: 10 } }, "That reads like a stop-for-48-hours signal, not a warm-up ache. Bone pain on shin, foot or femur: stop entirely and see a physio.")), day.k === "rest" && /* @__PURE__ */ React.createElement("p", { className: "mute", style: { marginTop: 12 } }, "Rest is a session. Sleep is the lift you can't skip."));
   }
@@ -563,7 +570,6 @@ if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").ca
   }
   window.MarathonApp = App;
 })();
-
 </script>
 <script>
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(window.MarathonApp));
