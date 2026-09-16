@@ -1,4 +1,4 @@
-const C = "sub4-v1";
+const C = "sub4-v3";
 const ASSETS = ["./", "./index.html", "./icon.png", "./manifest.webmanifest",
   "https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"];
