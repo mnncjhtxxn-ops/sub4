@@ -216,7 +216,306 @@ if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").ca
       { id: "c5", n: "Incline curl", sets: 2, lo: 12, hi: 15, load: "db" },
       { id: "c6", n: "Overhead triceps extension", sets: 2, lo: 12, hi: 15, load: "db" }
     ], core: "" }
-  }, pad = (n) => String(n).padStart(2, "0"), iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, parse = (s) => {
+  }, STAND = { h: [100, 26], s: [100, 44], p: [100, 88], k: [100, 114], a: [100, 140], e: [100, 66], w: [100, 88] }, FRONT = { front: !0, h: [110, 24], sL: [88, 44], sR: [132, 44], pL: [98, 90], pR: [122, 90], kL: [96, 116], aL: [94, 140], kR: [124, 116], aR: [126, 140], eL: [84, 68], wL: [82, 92], eR: [136, 68], wR: [138, 92] }, LIE = { h: [30, 132], s: [50, 130], p: [100, 132] }, BENCH_LOW = [{ t: "rect", x: 70, y: 100, w: 60, h: 10 }, { t: "line", x1: 76, y1: 110, x2: 76, y2: 140 }, { t: "line", x1: 124, y1: 110, x2: 124, y2: 140 }], SEATED = { h: [100, 44], s: [100, 62], p: [100, 100], k: [130, 102], a: [130, 140] }, UNDER_BAR = [{ t: "rect", x: 40, y: 64, w: 140, h: 6 }, { t: "line", x1: 46, y1: 70, x2: 46, y2: 140 }, { t: "line", x1: 174, y1: 70, x2: 174, y2: 140 }], INCLINE = [{ t: "poly", pts: "56,80 64,72 154,118 146,126" }, { t: "line", x1: 150, y1: 122, x2: 150, y2: 140 }], FEET_BENCH = [{ t: "rect", x: 152, y: 108, w: 44, h: 32 }], HINGE = { h: [60, 58], s: [80, 66], p: [120, 96], k: [128, 120], a: [128, 140] }, QUAD = { h: [52, 72], s: [68, 80], p: [128, 82], k: [128, 140], a: [164, 140], e: [68, 110], w: [68, 140], k2: [132, 140], a2: [168, 140], e2: [72, 110], w2: [72, 140] }, EXGUIDE = {
+    a1: {
+      title: "Feet-elevated push-up",
+      poses: [
+        { h: [46, 88], s: [62, 96], p: [112, 100], k: [146, 104], a: [176, 108], e: [60, 118], w: [58, 140], props: FEET_BENCH },
+        { h: [46, 112], s: [62, 120], p: [112, 116], k: [146, 112], a: [176, 108], e: [38, 126], w: [58, 140], props: FEET_BENCH }
+      ],
+      set: "Hands under the shoulders, feet on the bench, body one straight line from head to heels, abs braced.",
+      go: "Lower until the chest is a fist's height off the floor, elbows about 45\xB0 from the body, press back up. Deficit version: hands on the dumbbells so the chest can go below hand height.",
+      no: "Hips sagging or piked up. Elbows flared to 90\xB0. Too easy at 15? Raise the feet higher or slow the descent to 4 s."
+    },
+    a2: {
+      title: "Inverted row",
+      poses: [
+        { h: [66, 110], s: [80, 114], p: [130, 124], k: [165, 132], a: [195, 140], e: [80, 92], w: [80, 70], props: UNDER_BAR },
+        { h: [66, 80], s: [80, 84], p: [130, 100], k: [165, 118], a: [195, 140], e: [62, 96], w: [80, 70], props: UNDER_BAR }
+      ],
+      set: "Lie under a sturdy bench, table edge or a doorway bar; grip it, heels on the floor, body straight, shoulders down.",
+      go: "Pull the chest to the edge, squeeze the shoulder blades together, lower under control for 3 s.",
+      no: "Hips dropping. Shrugging. If it isn't sturdy, don't. Easier: bend the knees, feet flat. Harder: feet on a chair."
+    },
+    a3: {
+      title: "Seated single-arm dumbbell press",
+      poses: [
+        { ...SEATED, e: [118, 74], w: [118, 52], db: !0, e2: [92, 80], w2: [96, 98], props: BENCH_LOW },
+        { ...SEATED, e: [108, 40], w: [110, 16], db: !0, e2: [92, 80], w2: [96, 98], props: BENCH_LOW }
+      ],
+      set: "Sit tall, feet flat, dumbbell at shoulder height with the palm forward, other hand on the thigh.",
+      go: "Press straight up until the arm locks out beside the ear; 4 s back down to the shoulder.",
+      no: "Leaning away from the working arm. Arching the lower back \u2014 brace the abs and keep the ribs down."
+    },
+    a4: {
+      title: "Chest-supported single-arm row",
+      poses: [
+        { h: [62, 60], s: [82, 68], p: [126, 92], k: [146, 104], a: [164, 140], e: [84, 90], w: [86, 112], db: !0, e2: [74, 86], w2: [70, 100], props: INCLINE },
+        { h: [62, 60], s: [82, 68], p: [126, 92], k: [146, 104], a: [164, 140], e: [100, 74], w: [98, 92], db: !0, e2: [74, 86], w2: [70, 100], props: INCLINE }
+      ],
+      set: "Bench propped at 30\u201345\xB0 (against the wall or a stair), chest on the pad, feet braced, dumbbell hanging straight down.",
+      go: "Row the elbow toward the hip, pause 2 s at the top with the shoulder blade pulled back, lower slowly.",
+      no: "Twisting the torso to heave it up. Rowing to the shoulder instead of the hip. Keep the chest glued to the pad."
+    },
+    a5: {
+      title: "Lateral raise",
+      poses: [
+        { ...FRONT, dbL: !0, dbR: !0 },
+        { ...FRONT, eL: [62, 50], wL: [40, 48], eR: [158, 50], wR: [180, 48], dbL: !0, dbR: !0 }
+      ],
+      set: "Standing, slight lean forward from the hips, dumbbells at the sides, a small bend in the elbows.",
+      go: "Raise out to the sides until the arms are level with the shoulders \u2014 lead with the elbows, not the hands. 3 s down.",
+      no: "Shrugging. Swinging. Going above shoulder height. 2.5\u20135 kg is correct here; take the last set to failure."
+    },
+    a6: {
+      title: "Rear-delt fly",
+      poses: [
+        { ...HINGE, e: [80, 88], w: [80, 110], db: !0 },
+        { ...HINGE, e: [64, 64], w: [46, 58], db: !0 }
+      ],
+      set: "Hinge at the hips until the chest is nearly parallel to the floor, back flat, dumbbells hanging under the shoulders.",
+      go: "Sweep the arms out and back like opening a pair of doors, thumbs turned slightly down, squeeze between the shoulder blades.",
+      no: "Standing up as you lift. Using the bounce of the hinge. 2.5\u20135 kg, high reps."
+    },
+    a7: [
+      {
+        title: "Curl",
+        poses: [{ ...STAND, w: [112, 90], db: !0 }, { ...STAND, e: [100, 68], w: [112, 50], db: !0 }],
+        set: "Elbows pinned to the sides, palms forward.",
+        go: "Curl to the shoulder without the elbow moving; 3 s down.",
+        no: "Swinging the body. Elbows drifting forward."
+      },
+      {
+        title: "Overhead triceps extension",
+        poses: [{ ...STAND, e: [92, 34], w: [92, 10], db: !0 }, { ...STAND, e: [92, 34], w: [74, 46], db: !0 }],
+        set: "One dumbbell held in both hands overhead, elbows pointing forward and close to the head.",
+        go: "Lower the weight behind the head by bending only the elbows, then press back up.",
+        no: "Elbows flaring out. Arching the back \u2014 brace."
+      }
+    ],
+    b1: {
+      title: "Bulgarian split squat",
+      poses: [
+        { h: [100, 28], s: [100, 46], p: [100, 88], k: [100, 114], a: [100, 140], k2: [136, 112], a2: [166, 100], e: [100, 66], w: [100, 86], db: !0, props: [{ t: "rect", x: 150, y: 100, w: 44, h: 12 }, { t: "line", x1: 156, y1: 112, x2: 156, y2: 140 }, { t: "line", x1: 188, y1: 112, x2: 188, y2: 140 }] },
+        { h: [100, 50], s: [100, 68], p: [102, 110], k: [110, 124], a: [100, 140], k2: [142, 132], a2: [166, 100], e: [102, 88], w: [102, 108], db: !0, props: [{ t: "rect", x: 150, y: 100, w: 44, h: 12 }, { t: "line", x1: 156, y1: 112, x2: 156, y2: 140 }, { t: "line", x1: 188, y1: 112, x2: 188, y2: 140 }] }
+      ],
+      set: "Rear foot laces-down on the bench, front foot far enough forward that the shin stays near-vertical at the bottom. Dumbbells at the sides.",
+      go: "Lower straight down for 4 s until the front thigh is parallel, then drive up through the whole front foot.",
+      no: "Front knee caving inward. Bouncing at the bottom. Leave 2\u20133 reps in reserve \u2014 legs are never taken to failure in this plan."
+    },
+    b2: {
+      title: "Single-leg Romanian deadlift",
+      poses: [
+        { ...STAND, w: [112, 90], db: !0 },
+        { h: [54, 60], s: [72, 66], p: [112, 88], k: [112, 116], a: [112, 140], k2: [140, 80], a2: [168, 74], e: [72, 90], w: [72, 112], db: !0 }
+      ],
+      set: "Stand on one leg with a soft knee, dumbbell in the opposite hand.",
+      go: "Hinge at the hip: push the free leg straight back as the chest goes forward, until torso and back leg are roughly level. Stand up by driving the hip forward.",
+      no: "Rounding the back. Hips twisting open. If balance is the limit, rest the free hand on the bench \u2014 it's a hamstring exercise, not a balance test."
+    },
+    b3: {
+      title: "Step-up",
+      poses: [
+        { h: [92, 34], s: [92, 52], p: [92, 94], k: [92, 116], a: [92, 140], k2: [120, 110], a2: [140, 118], e: [92, 72], w: [92, 92], db: !0, props: [{ t: "rect", x: 128, y: 118, w: 64, h: 22 }] },
+        { h: [140, 14], s: [140, 32], p: [140, 72], k: [140, 96], a: [140, 118], k2: [132, 100], a2: [130, 118], e: [140, 52], w: [140, 72], db: !0, props: [{ t: "rect", x: 128, y: 118, w: 64, h: 22 }] }
+      ],
+      set: "A step or sturdy box at or just below knee height. Whole foot on it, dumbbells at the sides.",
+      go: "Drive through the top foot to stand tall on the box; lower back down slowly on the same leg.",
+      no: "Pushing off the bottom foot. Leaning forward over the knee. Slower is harder \u2014 3 s down."
+    },
+    b4: {
+      title: "Single-leg calf raise off a step",
+      poses: [
+        { h: [100, 28], s: [100, 46], p: [100, 88], k: [104, 114], a: [110, 132], k2: [116, 118], a2: [124, 140], e: [100, 66], w: [100, 86], db: !0, e2: [84, 60], w2: [62, 58], props: [{ t: "rect", x: 84, y: 126, w: 60, h: 14 }, { t: "line", x1: 60, y1: 20, x2: 60, y2: 140 }] },
+        { h: [100, 14], s: [100, 32], p: [100, 74], k: [104, 100], a: [110, 116], k2: [116, 104], a2: [124, 126], e: [100, 52], w: [100, 72], db: !0, e2: [84, 46], w2: [62, 44], props: [{ t: "rect", x: 84, y: 126, w: 60, h: 14 }, { t: "line", x1: 60, y1: 20, x2: 60, y2: 140 }] }
+      ],
+      set: "Ball of the foot on the edge of a step, other foot hooked behind, one hand on the wall for balance, dumbbell in the free hand.",
+      go: "Drop the heel below the step for a full stretch, rise as high as you can, pause 1 s at the top. Knee straight throughout.",
+      no: "Bouncing out of the bottom. Bending the knee. This is the Achilles insurance policy \u2014 never skip it."
+    },
+    b5: {
+      title: "Seated (bent-knee) calf raise",
+      poses: [
+        { ...SEATED, e: [112, 80], w: [126, 94], props: [...BENCH_LOW, { t: "rect", x: 118, y: 134, w: 28, h: 6 }], db: !0 },
+        { ...SEATED, k: [130, 94], a: [130, 132], e: [112, 76], w: [126, 88], props: [...BENCH_LOW, { t: "rect", x: 118, y: 134, w: 28, h: 6 }], db: !0 }
+      ],
+      set: "Sit on the bench, toes on a book or block, dumbbell resting on the knee (fold a towel under it).",
+      go: "Drop the heel, then rise onto the toes and squeeze at the top. The knee stays bent \u2014 this is the soleus, the muscle that takes 6\u20138\xD7 bodyweight per stride.",
+      no: "Rushing. 15\u201320 slow reps with a pause is the point."
+    },
+    b6: {
+      title: "Single-leg glute bridge, foot on bench",
+      poses: [
+        { ...LIE, p: [100, 134], k: [134, 110], a: [160, 110], k2: [118, 100], a2: [136, 66], e: [70, 138], w: [88, 140], props: [{ t: "rect", x: 146, y: 110, w: 50, h: 30 }] },
+        { ...LIE, p: [100, 108], k: [136, 104], a: [160, 110], k2: [120, 80], a2: [138, 46], e: [70, 138], w: [88, 140], props: [{ t: "rect", x: 146, y: 110, w: 50, h: 30 }] }
+      ],
+      set: "On your back, one heel on the bench with the knee at ~90\xB0, other leg straight and held up, dumbbell resting on the hip.",
+      go: "Drive the heel into the bench and lift the hips until shoulder, hip and knee line up; pause; lower slowly.",
+      no: "Feeling it in the lower back \u2014 tuck the pelvis and lift a little less high. Glutes should be doing all of it."
+    },
+    b7: "a2",
+    c1: [
+      {
+        title: "Dips between chairs",
+        poses: [
+          { h: [92, 54], s: [96, 70], p: [112, 100], k: [142, 116], a: [172, 140], e: [92, 92], w: [86, 112], props: [{ t: "rect", x: 56, y: 112, w: 44, h: 28 }, { t: "line", x1: 56, y1: 70, x2: 56, y2: 112 }] },
+          { h: [92, 80], s: [96, 96], p: [112, 116], k: [142, 124], a: [172, 140], e: [76, 104], w: [86, 112], props: [{ t: "rect", x: 56, y: 112, w: 44, h: 28 }, { t: "line", x1: 56, y1: 70, x2: 56, y2: 112 }] }
+        ],
+        set: "Two sturdy chairs shoulder-width apart, or one behind you; hands on the seats, legs out in front, heels on the floor.",
+        go: "Lower until the upper arms are parallel to the floor, elbows pointing back, press up.",
+        no: "Going deeper than parallel if the front of the shoulder complains. Shrugging at the top."
+      },
+      {
+        title: "Or: dumbbell floor press",
+        poses: [{ ...LIE, k: [132, 110], a: [150, 140], e: [58, 140], w: [58, 116], db: !0 }, { ...LIE, k: [132, 110], a: [150, 140], e: [52, 102], w: [52, 84], db: !0 }],
+        set: "On your back, knees bent, upper arms on the floor, forearms vertical, dumbbells over the elbows.",
+        go: "Press up over the chest, lower until the upper arms touch the floor again.",
+        no: "Bouncing the elbows off the floor."
+      }
+    ],
+    c2: {
+      title: "Single-arm dumbbell row",
+      poses: [
+        { h: [60, 66], s: [80, 72], p: [125, 96], k: [135, 118], a: [135, 140], e2: [62, 86], w2: [54, 100], e: [86, 96], w: [88, 118], db: !0, props: [{ t: "rect", x: 40, y: 100, w: 60, h: 12 }, { t: "line", x1: 46, y1: 112, x2: 46, y2: 140 }, { t: "line", x1: 94, y1: 112, x2: 94, y2: 140 }] },
+        { h: [60, 66], s: [80, 72], p: [125, 96], k: [135, 118], a: [135, 140], e2: [62, 86], w2: [54, 100], e: [100, 80], w: [94, 98], db: !0, props: [{ t: "rect", x: 40, y: 100, w: 60, h: 12 }, { t: "line", x1: 46, y1: 112, x2: 46, y2: 140 }, { t: "line", x1: 94, y1: 112, x2: 94, y2: 140 }] }
+      ],
+      set: "One hand on the bench, back flat, feet staggered, dumbbell hanging straight down from the shoulder.",
+      go: "Row the elbow past the hip, keeping it close to the body; 2 s squeeze at the top; lower slowly.",
+      no: "Opening the torso to the ceiling. At 10 kg, chase 12\u201315 clean reps rather than heaving."
+    },
+    c3: "a5",
+    c4: {
+      title: "Straight-arm band pulldown",
+      poses: [
+        { h: [84, 32], s: [90, 50], p: [104, 90], k: [108, 116], a: [108, 140], e: [122, 42], w: [150, 36], props: [{ t: "circle", cx: 196, cy: 22, r: 4 }, { t: "line", x1: 150, y1: 36, x2: 196, y2: 22, dash: !0 }] },
+        { h: [84, 32], s: [90, 50], p: [104, 90], k: [108, 116], a: [108, 140], e: [110, 74], w: [118, 98], props: [{ t: "circle", cx: 196, cy: 22, r: 4 }, { t: "line", x1: 118, y1: 98, x2: 196, y2: 22, dash: !0 }] }
+      ],
+      set: "Band anchored high (top of a door), stand back a step, slight hinge, arms nearly straight.",
+      go: "Sweep the hands down to the thighs in an arc, arms straight, squeeze the lats at the bottom, return slowly.",
+      no: "Bending the elbows into a triceps pressdown. No band? Hard, slow rowing-machine pulls with a 1 s pause at the chest."
+    },
+    c5: {
+      title: "Incline curl",
+      poses: [
+        { h: [76, 52], s: [92, 64], p: [130, 100], k: [150, 104], a: [150, 140], e: [86, 86], w: [84, 108], db: !0, props: INCLINE },
+        { h: [76, 52], s: [92, 64], p: [130, 100], k: [150, 104], a: [150, 140], e: [88, 84], w: [104, 68], db: !0, props: INCLINE }
+      ],
+      set: "Bench propped at ~45\xB0, sit back on it, arms hanging straight down and slightly behind the body.",
+      go: "Curl without moving the upper arm; 3 s down to a full stretch.",
+      no: "Elbows drifting forward. Shortening the range."
+    },
+    c6: "a7",
+    core_side_plank: {
+      title: "Side plank",
+      poses: [
+        { h: [42, 84], s: [56, 94], p: [110, 110], k: [150, 122], a: [190, 134], e: [48, 140], w: [80, 140], e2: [70, 96], w2: [100, 104] },
+        { h: [42, 84], s: [56, 94], p: [110, 128], k: [150, 132], a: [190, 134], e: [48, 140], w: [80, 140], e2: [70, 96], w2: [100, 116], label: "Hips dropped \u2014 no", bad: !0 }
+      ],
+      set: "Elbow directly under the shoulder, feet stacked or top foot in front, top hand on the hip.",
+      go: "Lift the hips so head, hip and ankle make one straight line. Breathe. Hold.",
+      no: "Hips sagging toward the floor. Shoulder rolling forward. Start from the knees if 20 s isn't there yet."
+    },
+    core_dead_bug: {
+      title: "Dead bug",
+      poses: [
+        { ...LIE, k: [110, 102], a: [136, 104], e: [54, 110], w: [58, 90], k2: [112, 102], a2: [138, 106], e2: [60, 108], w2: [64, 88] },
+        { ...LIE, k: [130, 118], a: [170, 124], e: [30, 120], w: [12, 110], k2: [112, 102], a2: [138, 106], e2: [60, 108], w2: [64, 88] }
+      ],
+      set: "On your back, knees over the hips, shins parallel to the floor, arms straight up, lower back pressed flat into the floor.",
+      go: "Slowly lower the opposite arm and leg toward the floor only as far as the back stays flat; return; alternate sides.",
+      no: "The lower back arching off the floor \u2014 that's where the rep ends, not something to push through."
+    },
+    core_bird_dog: {
+      title: "Bird dog",
+      poses: [
+        { ...QUAD },
+        { ...QUAD, e: [36, 74], w: [6, 68], k: [160, 90], a: [196, 92] }
+      ],
+      set: "Hands under the shoulders, knees under the hips, back flat like a table top.",
+      go: "Reach one arm forward and the opposite leg back until both are level with the torso; hold 5 s; return slowly and swap.",
+      no: "Hips twisting open. Arching the back to get the leg higher. Slow beats high."
+    },
+    core_copenhagen: {
+      title: "Copenhagen plank",
+      poses: [
+        { h: [42, 78], s: [56, 88], p: [112, 100], k: [150, 96], a: [186, 96], k2: [140, 112], a2: [168, 120], e: [48, 140], w: [80, 140], e2: [70, 90], w2: [100, 98], props: [{ t: "rect", x: 150, y: 96, w: 46, h: 30 }], label: "Full: foot on bench" },
+        { h: [42, 78], s: [56, 88], p: [112, 100], k: [152, 96], a: [176, 124], k2: [140, 112], a2: [168, 120], e: [48, 140], w: [80, 140], e2: [70, 90], w2: [100, 98], props: [{ t: "rect", x: 150, y: 96, w: 46, h: 30 }], label: "Easier: knee on bench" }
+      ],
+      set: "Side plank with the top foot (or, easier, the top knee) resting on the bench, bottom leg free underneath.",
+      go: "Lift the hips and squeeze the top leg down into the bench \u2014 the inner thigh does the work. Hold.",
+      no: "Hips dropping. Start with 10 s from the knee. This is the groin and adductor insurance for running."
+    },
+    core_pallof: {
+      title: "Pallof press",
+      poses: [
+        { ...STAND, e: [112, 64], w: [110, 60], props: [{ t: "line", x1: 110, y1: 60, x2: 10, y2: 24, dash: !0 }, { t: "text", x: 14, y: 18, s: "band \u2192 anchor at your side" }] },
+        { ...STAND, e: [130, 56], w: [150, 54], props: [{ t: "line", x1: 150, y1: 54, x2: 10, y2: 24, dash: !0 }] }
+      ],
+      set: "Band anchored at chest height to one side; stand side-on, feet shoulder-width, hands holding the band at the sternum.",
+      go: "Press the hands straight out in front and hold 2 s \u2014 the band tries to twist you, you don't let it. Return.",
+      no: "Leaning away from the anchor. Step further away for more resistance, not closer."
+    },
+    core_suitcase: {
+      title: "Suitcase carry",
+      poses: [
+        { ...FRONT, dbR: !0, label: "Shoulders level" },
+        { ...FRONT, sL: [86, 40], sR: [134, 56], pL: [98, 90], pR: [122, 92], eL: [80, 64], wL: [76, 88], eR: [142, 80], wR: [146, 104], dbR: !0, label: "Leaning into it \u2014 no", bad: !0 }
+      ],
+      set: "Heavy dumbbell in one hand, stand tall, shoulders level, ribs down.",
+      go: "Walk 30 m without leaning toward or away from the weight; switch hands and walk back.",
+      no: "Hip hiking. Shoulder dropping. If 10 kg is easy, walk slower and further."
+    },
+    core_ab_wheel: [
+      {
+        title: "Long-lever plank",
+        poses: [
+          { h: [36, 96], s: [52, 104], p: [110, 106], k: [148, 112], a: [190, 140], e: [30, 124], w: [14, 140] },
+          { h: [36, 96], s: [52, 104], p: [110, 122], k: [148, 124], a: [190, 140], e: [30, 124], w: [14, 140], label: "Back sagging \u2014 no", bad: !0 }
+        ],
+        set: "Plank on the hands, hands walked out ahead of the shoulders \u2014 the further, the harder. Glutes squeezed, ribs down.",
+        go: "Hold with the pelvis tucked. Breathe.",
+        no: "The lower back sagging into an arch."
+      },
+      {
+        title: "Or: ab wheel rollout (from the knees)",
+        poses: [
+          { h: [100, 70], s: [104, 84], p: [126, 110], k: [130, 140], a: [170, 140], e: [84, 104], w: [68, 126], props: [{ t: "circle", cx: 64, cy: 134, r: 6 }] },
+          { h: [40, 96], s: [56, 104], p: [110, 112], k: [130, 140], a: [170, 140], e: [30, 118], w: [10, 134], props: [{ t: "circle", cx: 8, cy: 134, r: 6 }] }
+        ],
+        set: "Kneel with the wheel under the shoulders, hips tucked.",
+        go: "Roll out as far as the back stays flat, then pull back with the abs \u2014 not the arms.",
+        no: "Letting the hips drop or the back arch as you reach."
+      }
+    ],
+    core_hollow: {
+      title: "Hollow hold (no bar needed)",
+      poses: [
+        { h: [30, 120], s: [50, 124], p: [100, 130], k: [136, 118], a: [172, 108], e: [26, 108], w: [6, 96] },
+        { h: [30, 120], s: [50, 124], p: [100, 130], k: [128, 110], a: [150, 120], e: [26, 108], w: [6, 96], label: "Easier: knees bent" }
+      ],
+      set: "On your back, lower back pressed into the floor, arms overhead, legs straight and lifted just off the floor.",
+      go: "Hold the shape \u2014 shoulder blades and heels off the floor, back flat. 20\u201330 s.",
+      no: "Lower back lifting off the floor. Bend the knees or raise the legs higher to make it easier."
+    }
+  }, CORE_PLAN = {
+    A: [{ when: "Weeks 1\u20138", ids: ["core_side_plank", "core_dead_bug"], dose: "side plank 3 \xD7 20\u201330 s/side \xB7 dead bug 3 \xD7 10/side" }, { when: "Weeks 9+", ids: ["core_pallof", "core_suitcase"], dose: "Pallof 3 \xD7 12/side \xB7 suitcase carry 3 \xD7 30 m/side" }],
+    B: [{ when: "Weeks 1\u20138", ids: ["core_bird_dog", "core_copenhagen"], dose: "bird dog 3 \xD7 8/side \xB7 Copenhagen (knee) 2 \xD7 20 s/side" }, { when: "Weeks 9+", ids: ["core_ab_wheel", "core_copenhagen", "core_hollow"], dose: "long-lever plank or wheel 3 \xD7 8 \xB7 Copenhagen (full) 3 \xD7 25 s/side \xB7 hollow hold 3 \xD7 20 s" }]
+  }, guideFor = (id) => {
+    let g = EXGUIDE[id];
+    for (; typeof g == "string"; ) g = EXGUIDE[g];
+    return g;
+  };
+  function Fig({ p, title }) {
+    const L = (a, b, cls) => a && b ? /* @__PURE__ */ React.createElement("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1], className: cls }) : null, DB = (w) => w ? /* @__PURE__ */ React.createElement("g", { className: "fdb" }, /* @__PURE__ */ React.createElement("line", { x1: w[0] - 7, y1: w[1], x2: w[0] + 7, y2: w[1] }), /* @__PURE__ */ React.createElement("circle", { cx: w[0] - 7, cy: w[1], r: "3" }), /* @__PURE__ */ React.createElement("circle", { cx: w[0] + 7, cy: w[1], r: "3" })) : null, props = (p.props || []).map((q, i) => q.t === "rect" ? /* @__PURE__ */ React.createElement("rect", { key: i, x: q.x, y: q.y, width: q.w, height: q.h, rx: "2", className: "fprop" }) : q.t === "line" ? /* @__PURE__ */ React.createElement("line", { key: i, x1: q.x1, y1: q.y1, x2: q.x2, y2: q.y2, className: q.dash ? "fband" : "fprop" }) : q.t === "poly" ? /* @__PURE__ */ React.createElement("polygon", { key: i, points: q.pts, className: "fprop" }) : q.t === "circle" ? /* @__PURE__ */ React.createElement("circle", { key: i, cx: q.cx, cy: q.cy, r: q.r, className: "fprop" }) : q.t === "text" ? /* @__PURE__ */ React.createElement("text", { key: i, x: q.x, y: q.y, className: "ftext" }, q.s) : null);
+    return /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 220 160", className: "fig", role: "img", "aria-label": title }, /* @__PURE__ */ React.createElement("line", { x1: "4", y1: "140", x2: "216", y2: "140", className: "ffloor" }), props, p.front ? /* @__PURE__ */ React.createElement("g", null, L(p.sL, p.sR, "fb"), L(p.sL, p.pL, "fb"), L(p.sR, p.pR, "fb"), L(p.pL, p.pR, "fb"), L(p.pL, p.kL, "fb"), L(p.kL, p.aL, "fb"), L(p.pR, p.kR, "fb"), L(p.kR, p.aR, "fb"), L(p.sL, p.eL, "fb"), L(p.eL, p.wL, "fb"), L(p.sR, p.eR, "fb"), L(p.eR, p.wR, "fb"), p.dbL && DB(p.wL), p.dbR && DB(p.wR)) : /* @__PURE__ */ React.createElement("g", null, L(p.p, p.k2, "fm"), L(p.k2, p.a2, "fm"), L(p.s, p.e2, "fm"), L(p.e2, p.w2, "fm"), L(p.s, p.p, "fb"), L(p.p, p.k, "fb"), L(p.k, p.a, "fb"), L(p.s, p.e, "fb"), L(p.e, p.w, "fb"), p.db && DB(p.w), p.db2 && DB(p.w2)), /* @__PURE__ */ React.createElement("circle", { cx: p.h[0], cy: p.h[1], r: "8", className: "fhead" }), p.label && /* @__PURE__ */ React.createElement("text", { x: "110", y: "156", textAnchor: "middle", className: "ftext" + (p.bad ? " fbad" : "") }, p.label));
+  }
+  function Guide({ id, openByDefault }) {
+    const g = guideFor(id), [open, setOpen] = useState(!!openByDefault);
+    if (!g) return null;
+    const list = Array.isArray(g) ? g : [g];
+    return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "chip", onClick: () => setOpen((o) => !o), "aria-expanded": open }, open ? "Hide" : "How to do it"), open && list.map((x, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { marginTop: 10 } }, list.length > 1 && /* @__PURE__ */ React.createElement("div", { className: "sm" }, /* @__PURE__ */ React.createElement("strong", null, x.title)), /* @__PURE__ */ React.createElement("div", { className: "grid2", style: { marginTop: 6 } }, x.poses.map((q, j) => /* @__PURE__ */ React.createElement("div", { key: j }, /* @__PURE__ */ React.createElement(Fig, { p: q, title: x.title }), !q.label && /* @__PURE__ */ React.createElement("div", { className: "sm mute", style: { textAlign: "center", marginTop: 2 } }, j === 0 ? "Start" : "Finish")))), /* @__PURE__ */ React.createElement("div", { className: "sm", style: { marginTop: 8, lineHeight: 1.5 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "Set up \u2014 "), x.set), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mute" }, "Do \u2014 "), x.go), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "warn" }, "Don't \u2014 "), x.no)))));
+  }
+  const pad = (n) => String(n).padStart(2, "0"), iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, parse = (s) => {
     const [y, m, d] = s.split("-").map(Number);
     return new Date(y, m - 1, d);
   }, addDays = (s, n) => {
@@ -298,6 +597,15 @@ if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").ca
 .mc .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px}
 .mc details summary{cursor:pointer;list-style:none}
 .mc details summary::-webkit-details-marker{display:none}
+.mc .fig{width:100%;height:auto;background:var(--bg);border-radius:10px;border:1px solid var(--line)}
+.mc .fb{stroke:var(--ink);stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.mc .fm{stroke:var(--mute);stroke-width:2.6;stroke-linecap:round;fill:none;opacity:.55}
+.mc .fhead{fill:var(--ink)}
+.mc .fdb line{stroke:var(--hi);stroke-width:2.5;stroke-linecap:round}.mc .fdb circle{fill:var(--hi)}
+.mc .fprop{fill:var(--panel2);stroke:var(--line);stroke-width:1.6}
+.mc .ffloor{stroke:var(--line);stroke-width:2}
+.mc .fband{stroke:var(--ok);stroke-width:2;stroke-dasharray:4 3;fill:none}
+.mc .ftext{fill:var(--mute);font-size:9px;font-family:inherit}.mc .fbad{fill:var(--warn)}
 .mc .pace{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:22px 18px;text-align:center}
 .mc .pace .big{font-size:clamp(64px,22vw,140px);font-weight:600;line-height:1;letter-spacing:-.03em;color:var(--hi)}
 .mc .pace .spd{font-size:clamp(34px,10vw,64px);font-weight:600;line-height:1.1;margin-top:8px}
@@ -449,14 +757,14 @@ if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").ca
     };
     return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Lifts"), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { margin: "0 0 10px" } }, build ? "Weeks 1\u201314: build. Push it." : "Maintenance from week 15. Hold the load, hold the reps.", " Lower body: leave 2\u20133 reps in reserve. Breathe out through the hard part."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, ["A", "B", "C"].map((k) => /* @__PURE__ */ React.createElement("button", { key: k, className: "chip" + (sess === k ? " on" : ""), onClick: () => setSess(k), disabled: k === "C" && !build }, LIFTS[k].name, k === suggested ? " \xB7 today" : ""))), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { margin: "10px 0 0" } }, L.when, last ? ` \xB7 last done ${fmtD(last.date)}` : " \xB7 no sessions logged yet"), L.ex.map((ex) => {
       const g = get(ex.id), h = hint(ex), n = setsFor(ex);
-      return /* @__PURE__ */ React.createElement("div", { className: "panel", key: ex.id, style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, ex.n)), /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, n, " \xD7 ", ex.lo, "\u2013", ex.hi, ex.per ? ` per ${ex.per}` : "", ex.rir ? " \xB7 RIR 2\u20133" : ""), h && /* @__PURE__ */ React.createElement("div", { className: h.c + " sm", style: { marginTop: 4 } }, h.t), /* @__PURE__ */ React.createElement("div", { className: "exset" }, ex.load === "db" ? /* @__PURE__ */ React.createElement("input", { type: "number", inputMode: "decimal", placeholder: "kg", value: g.w, onChange: (e) => setEx(ex.id, { w: e.target.value }), "aria-label": "Load in kg" }) : /* @__PURE__ */ React.createElement("span", { className: "sm mute" }, "bodyweight"), /* @__PURE__ */ React.createElement("div", { className: "reps" }, Array.from({ length: n }).map((_, i) => {
+      return /* @__PURE__ */ React.createElement("div", { className: "panel", key: ex.id, style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("strong", null, ex.n)), /* @__PURE__ */ React.createElement("div", { className: "sm mute" }, n, " \xD7 ", ex.lo, "\u2013", ex.hi, ex.per ? ` per ${ex.per}` : "", ex.rir ? " \xB7 RIR 2\u20133" : ""), h && /* @__PURE__ */ React.createElement("div", { className: h.c + " sm", style: { marginTop: 4 } }, h.t), /* @__PURE__ */ React.createElement(Guide, { id: ex.id }), /* @__PURE__ */ React.createElement("div", { className: "exset" }, ex.load === "db" ? /* @__PURE__ */ React.createElement("input", { type: "number", inputMode: "decimal", placeholder: "kg", value: g.w, onChange: (e) => setEx(ex.id, { w: e.target.value }), "aria-label": "Load in kg" }) : /* @__PURE__ */ React.createElement("span", { className: "sm mute" }, "bodyweight"), /* @__PURE__ */ React.createElement("div", { className: "reps" }, Array.from({ length: n }).map((_, i) => {
         var _a, _b, _c, _d;
         return /* @__PURE__ */ React.createElement("input", { key: i, type: "number", inputMode: "numeric", placeholder: ((_c = (_b = (_a = last == null ? void 0 : last.ex) == null ? void 0 : _a[ex.id]) == null ? void 0 : _b.reps) == null ? void 0 : _c[i]) || "reps", value: (_d = g.reps[i]) != null ? _d : "", onChange: (e) => {
           const r = [...g.reps];
           r[i] = e.target.value, setEx(ex.id, { reps: r });
         }, "aria-label": `Set ${i + 1} reps` });
       }))));
-    }), L.core && /* @__PURE__ */ React.createElement("div", { className: "panel sm", style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("strong", null, "Core"), /* @__PURE__ */ React.createElement("div", { className: "mute", style: { marginTop: 4 } }, L.core)), /* @__PURE__ */ React.createElement("button", { className: "primary", style: { marginTop: 14 }, onClick: save }, "Save session"), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { marginTop: 10 } }, "Placeholders show last time's reps. Load is the least important variable \u2014 proximity to failure is what grows muscle at 10 kg."));
+    }), CORE_PLAN[sess] && /* @__PURE__ */ React.createElement("div", { className: "panel sm", style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("strong", null, "Core block ", sess), CORE_PLAN[sess].map((blk, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { marginTop: 8, opacity: (wk <= 8 ? i === 0 : i === 1) ? 1 : 0.55 } }, /* @__PURE__ */ React.createElement("div", { className: "mute" }, blk.when, " \xB7 ", blk.dose), blk.ids.map((id) => /* @__PURE__ */ React.createElement("div", { key: id, style: { marginTop: 6 } }, /* @__PURE__ */ React.createElement("span", null, (Array.isArray(guideFor(id)) ? guideFor(id)[0] : guideFor(id)).title), /* @__PURE__ */ React.createElement(Guide, { id })))))), /* @__PURE__ */ React.createElement("button", { className: "primary", style: { marginTop: 14 }, onClick: save }, "Save session"), /* @__PURE__ */ React.createElement("p", { className: "sm mute", style: { marginTop: 10 } }, "Placeholders show last time's reps. Load is the least important variable \u2014 proximity to failure is what grows muscle at 10 kg."));
   }
   function Trends({ data, update, race, today, flash }) {
     const [kg, setKg] = useState(""), [sys, setSys] = useState(""), [dia, setDia] = useState(""), addBody = () => {
